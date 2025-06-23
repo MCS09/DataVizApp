@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "path": "backend/DataVizApp"
+    },
+    {
+      "path": "frontend/datavizapp"
+    }
+  ],
+  "settings": {
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "files.exclude": {
+      "**/bin": true,
+      "**/obj": true,
+      "**/node_modules": true
+    }
+  }
+}
