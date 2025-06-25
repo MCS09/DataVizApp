@@ -1,6 +1,5 @@
 "use client";
 import { useState } from "react";
-import { signOut } from "next-auth/react";
 import LogoutButton from "./logoutButton";
 
 export default function LogoutDialogButton() {
@@ -8,7 +7,7 @@ export default function LogoutDialogButton() {
 
   return (
     <>
-      <button className="btn btn-outline" onClick={() => setOpen(true)}>
+      <button className="btn btn-secondary" onClick={() => setOpen(true)}>
         Logout
       </button>
       {open && (
