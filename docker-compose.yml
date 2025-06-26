@@ -6,9 +6,10 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NODE_ENV=production
+      - NODE_ENV=development
       - AUTH_TRUST_HOST=true
       - NEXTAUTH_URL=http://localhost:3000 # temp
+      - BACKEND_URL=http://backend:5001
       - AUTH_SECRET=jgfuMhQQFJdMfGvuaXnJgZ+7642PJCFosU+6x7s3bNQ=
       - GITHUB_ID=Ov23li5aGQxkaSHuNq1T
       - GITHUB_SECRET=207e91f9f5546a563fb6385b663bfb102dceb23a

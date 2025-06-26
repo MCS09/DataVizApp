@@ -1,4 +1,4 @@
-@DataVizApp_HostAddress = http://localhost:5152
+@DataVizApp_HostAddress = http://localhost:5001
 
 GET {{DataVizApp_HostAddress}}/weatherforecast/
 Accept: application/json

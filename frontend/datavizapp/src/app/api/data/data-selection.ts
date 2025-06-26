@@ -5,7 +5,7 @@ export async function getWeatherForecast(): Promise<WeatherData[]> {
   return await fetchData(BACKEND_URL + '/weatherforecast');
 }
 
-type WeatherData = {
+export type WeatherData = {
     "date": string,
     "temperatureC": number,
     "summary": "string",
