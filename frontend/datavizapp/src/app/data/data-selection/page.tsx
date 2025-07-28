@@ -1,8 +1,9 @@
 // import { getWeatherForecast } from "@/app/api/data/data-selection"
+import { WeatherData } from "@/app/api/data/data-selection"
 export default async function DatasetSelectionPage() {
   // const weatherData = await getWeatherForecast();
-  const weatherData = [
-    { date: "2023-10-01", temperature: 20, condition: "Sunny" }
+  const weatherData: WeatherData[] = [
+    { date: "2023-10-01", temperatureC: 20, summary: "Sunny", temperatureF: 68 },
   ]
   return (
     <div>

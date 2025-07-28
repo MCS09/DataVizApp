@@ -5,10 +5,10 @@
 //   return await fetchData(BACKEND_URL + '/weatherforecast');
 // }
 
-// export type WeatherData = {
-//     "date": string,
-//     "temperatureC": number,
-//     "summary": "string",
-//     "temperatureF": number
-// }
+export type WeatherData = {
+    "date": string,
+    "temperatureC": number,
+    "summary": string,
+    "temperatureF": number
+}
 
