@@ -1,4 +1,4 @@
-import { getWeatherForecast } from "@/app/api/data/data-selection"
+// import { getWeatherForecast } from "@/app/api/data/data-selection"
 export default async function DatasetSelectionPage() {
   // const weatherData = await getWeatherForecast();
   const weatherData = [
