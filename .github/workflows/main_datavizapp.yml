@@ -62,4 +62,5 @@ jobs:
         with:
           app-name: 'DataVizApp'
           slot-name: 'Production'
+          package: node-app
           
