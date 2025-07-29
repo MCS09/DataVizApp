@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("DataVizApp")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+38e29d8285d814290002c2760129426829624f10")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+1c5e63436916618db7b358dfbfb945be2c6249c8")]
 [assembly: System.Reflection.AssemblyProductAttribute("DataVizApp")]
 [assembly: System.Reflection.AssemblyTitleAttribute("DataVizApp")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
