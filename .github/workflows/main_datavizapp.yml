@@ -1,4 +1,4 @@
-name: Build and deploy ASP.Net Core app to Azure Web App - datavizapp
+name: Build and deploy ASP.Net Core app to Azure Web App - DataVizApp
 
 on:
   push:
@@ -21,10 +21,10 @@ jobs:
           dotnet-version: '8.x'
 
       - name: Build with dotnet
-        run: dotnet build ./backend/datavizapp --configuration Release
+        run: dotnet build ./backend/DataVizApp --configuration Release
 
       - name: dotnet publish
-        run: dotnet publish ./backend/datavizapp -c Release -o ./published
+        run: dotnet publish ./backend/DataVizApp -c Release -o ./published
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
@@ -45,7 +45,7 @@ jobs:
       - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
-          app-name: 'datavizapp'
+          app-name: 'DataVizApp'
           slot-name: 'Production'
           package: dotnet-app
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_526167DB44FC468288379A8A6BAC81F9 }}
