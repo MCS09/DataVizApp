@@ -48,5 +48,5 @@ jobs:
         with:
           app-name: 'DataVizApp'
           slot-name: 'Production'
-          package: dotnet-app
+          package: ./published
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_526167DB44FC468288379A8A6BAC81F9 }}
