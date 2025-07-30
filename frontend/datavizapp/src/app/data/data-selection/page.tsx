@@ -1,18 +1,15 @@
-// import { getWeatherForecast } from "@/app/api/data/data-selection"
 import { WeatherData } from "@/app/api/data/data-selection"
-export default async function DatasetSelectionPage() {
-  // const weatherData = await getWeatherForecast();
+import GoogleDrivePicker from "./components/googleDrivePicker"
+
+export default function DatasetSelectionPage() {
   const weatherData: WeatherData[] = [
     { date: "2023-10-01", temperatureC: 20, summary: "Sunny", temperatureF: 68 },
   ]
+  console.log("Weather Data:", weatherData);
   return (
     <div>
-      <h1 className="text-2xl font-bold">Weather Forecast</h1>
-      <ul>
-        {weatherData.map((item, idx) => (
-          <li key={idx}>{JSON.stringify(item)}</li>
-        ))}
-      </ul>
+      <h1 className="text-2xl font-bold">Import data from Google Drive</h1>
+      <GoogleDrivePicker />
     </div>
   )
 }
