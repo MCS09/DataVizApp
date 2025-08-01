@@ -32,10 +32,10 @@ jobs:
       - name: Create and start virtual environment
         run: |
           python -m venv venv
-          source venv/bin/activate
+          source backend/datavizapp-py-functions/venv/bin/activate
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r backend/datavizapp-py-functions/requirements.txt
 
       # Optional: Add step to run tests here
 

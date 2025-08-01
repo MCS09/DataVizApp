@@ -23,6 +23,6 @@ public class AnalyseDataController : ControllerBase
 
 public record AnalysisResult()
 {
-    public string Message { get; set; } = Message;
-    public DateTime Timestamp { get; set; } = Timestamp;
+    public required string Message { get; set; }
+    public DateTime Timestamp { get; set; }
 };
