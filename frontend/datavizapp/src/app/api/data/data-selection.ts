@@ -12,3 +12,9 @@ export type WeatherData = {
     "temperatureF": number
 }
 
+
+  export default function weatherData(): WeatherData[] {
+    return [
+      { date: "2023-10-01", temperatureC: 20, summary: "Sunny", temperatureF: 68 },
+    ]
+  }

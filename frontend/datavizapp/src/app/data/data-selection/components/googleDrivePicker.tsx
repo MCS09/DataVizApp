@@ -2,17 +2,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { DrivePickerElement } from '@googleworkspace/drive-picker-element';
+import { BACKEND_URL } from "@/constants/urls"
 
 export default function GoogleDrivePicker() {
   const pickerRef = useRef<DrivePickerElement | null>(null);
   const [isReady, setIsReady] = useState(false);
   const [googleOAuthToken, setGoogleOAuthToken] = useState<string | null>(null);
 
-  function handleFilePicked(fileId: string, token: string) {
-    console.log("Sending file to backend:", fileId, token);
-    // You can send this to your backend
-    // fetch('/api/import', { ... });
-  }
+    async function handleFilePicked(fileId: string, token: string) {
+        console.log("Sending file to backend:", fileId, token);
+        
+    }
 
   useEffect(() => {
     import('@googleworkspace/drive-picker-element').then(() => {
