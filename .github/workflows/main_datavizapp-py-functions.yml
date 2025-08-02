@@ -29,4 +29,3 @@ jobs:
           app-name: 'datavizapp-py-functions'
           slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-          publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_FBDCE777FE9E466DBC0AC0ABA85F668D }}
