@@ -26,7 +26,7 @@ jobs:
       run: |
         pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
         python -m pip install --upgrade pip
-        pip install -r requirements.txt --target=".python_packages/lib/site-packages"
+        pip install -r '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/requirements.txt'
         popd
 
     - name: 'Run Azure Functions Action'
@@ -35,6 +35,6 @@ jobs:
       with:
         app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
         package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
-        publish-profile: ${{ secrets.AZURE_FUNCTIONAPP_PUBLISH_PROFILE }}
+        publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_2B300C36DAE74B6EBC60EC5D7B1D06EC }}
         scm-do-build-during-deployment: true
         enable-oryx-build: true
