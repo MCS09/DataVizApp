@@ -71,3 +71,4 @@ jobs:
           slot-name: 'Production'
           package: ${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_2B300C36DAE74B6EBC60EC5D7B1D06EC }}
+          remote-build: true
