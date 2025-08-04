@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import type { DrivePickerElement } from '@googleworkspace/drive-picker-element';
-import { BACKEND_URL } from "@/constants/urls"
 
 export default function GoogleDrivePicker() {
   const pickerRef = useRef<DrivePickerElement | null>(null);
