@@ -1,5 +1,6 @@
+'use client'
+import PyodideRunner from "@/app/components/PyodideRunner";
 
-
-export default async function datasetCleaningPage() {
-  return 
+export default function datasetCleaningPage() {
+  return <PyodideRunner/>;
 }
