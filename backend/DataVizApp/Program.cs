@@ -1,9 +1,21 @@
+using DataVizApp.Models;
+using DotNetEnv;
+using Microsoft.EntityFrameworkCore;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Load .env file
+Env.Load();
+
+string connStr = builder.Configuration.GetValue<string>("CONNECTIONSTRINGS__DEFAULTCONNECTION") ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found in configuration.");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(connStr)
+);
 
 var app = builder.Build();
 
