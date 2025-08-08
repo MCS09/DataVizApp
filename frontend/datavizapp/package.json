@@ -16,7 +16,7 @@
     "@serwist/next": "^9.1.1",
     "@types/gapi": "^0.0.47",
     "@types/google.picker": "^0.0.51",
-    "ag-grid-react": "^34.1.0",
+    "ag-grid-react": "^34.1.1",
     "clsx": "^2.1.1",
     "daisyui": "^5.0.43",
     "next": "15.3.3",
