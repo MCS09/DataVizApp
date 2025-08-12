@@ -6,11 +6,13 @@ using Microsoft.EntityFrameworkCore;
 
 namespace DataVizApp.Models;
 
-[Table("workflow_stages_names")]
-public partial class WorkflowStagesName
+[Table("datasets")]
+public partial class Dataset
 {
     [Key]
-    [Column("workflow_stage_name")]
-    [StringLength(50)]
-    public string WorkflowStageName { get; set; } = null!;
+    [Column("dataset_id")]
+    public int DatasetId { get; set; }
+
+    [Column("user_id")]
+    public required string UserId { get; set; }
 }
