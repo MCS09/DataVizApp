@@ -11,98 +11,53 @@ using DataVizApp.Services;
 namespace DataVizApp.Controllers;
 [ApiController]
 [Route("api/[controller]")]
-public class AgentChatController(AgentService agentService) : ControllerBase
+public class AgentChatController(AgentService agentService, DatasetService datasetService) : ControllerBase
 {
     private readonly AgentService _agentService = agentService;
 
-    [HttpPost("getNewThread")]
-    public ActionResult<string> GetNewThread()
-    {
-        return _agentService.CreateNewThread();
-    }
+    private readonly DatasetService _datasetService = datasetService;
 
-    [HttpPost("chat")]
-    public async Task<IActionResult> Chat([FromBody] ChatRequest request)
-    {
-        string threadId = request.ThreadId;
-        string message = request.Message;
-        string userEmail = request.UserEmail;
 
-        var endpoint = new Uri("https://DataVizApp.services.ai.azure.com/api/projects/DataVizApp-Agents");
-        AIProjectClient projectClient = new(endpoint, new DefaultAzureCredential());
+    [HttpPost("getChatHistory")]
+    public async Task<IActionResult> GetChatHistory([FromBody] ChatHistoryRequest request)
+    {
+
+        // Get Thread
+        WorkflowStage? workflowStage = await _datasetService.GetWorkflowStageByDatasetIdAsync(request.DatasetId, request.WorkflowStageName);
+        if (workflowStage == null)
+        {
+            return NotFound("Workflow stage not found.");
+        }
+
+
+        Uri endpointUri = _agentService.GetServiceUrl();
+
+        AIProjectClient projectClient = new(endpointUri, new DefaultAzureCredential());
 
         PersistentAgentsClient agentsClient = projectClient.GetPersistentAgentsClient();
 
-        PersistentAgent agent = agentsClient.Administration.GetAgent("asst_vDwd3nza70lBM8w9KspdFA03");
-        
-        PersistentThreadMessage messageResponse = agentsClient.Messages.CreateMessage(
-            threadId,
-            MessageRole.User,
-            message);
-
-        ThreadRun run = agentsClient.Runs.CreateRun(
-            threadId,
-            agent.Id);
-
-        // Poll until the run reaches a terminal status
-        do
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(500));
-            run = agentsClient.Runs.GetRun(threadId, run.Id);
-        }
-        while (run.Status == RunStatus.Queued
-            || run.Status == RunStatus.InProgress);
-        if (run.Status != RunStatus.Completed)
-        {
-            throw new InvalidOperationException($"Run failed or was canceled: {run.LastError?.Message}");
-        }
-
         Pageable<PersistentThreadMessage> messages = agentsClient.Messages.GetMessages(
-            threadId, order: ListSortOrder.Ascending);
+            workflowStage.AzureAgentThreadId, order: ListSortOrder.Ascending);
 
-        ChatHistory chatHistory = new()
-        {
-            ThreadId = threadId,
-            Messages = []
-        };
+        // Flatten message content items to a list of MessageTextContent
+        List<MessageTextContent> messageTextContents = [.. messages
+            .SelectMany(m => m.ContentItems)
+            .OfType<MessageTextContent>()];
 
-        // Display messages
-        foreach (PersistentThreadMessage threadMessage in messages)
-        {
-            Console.Write($"{threadMessage.CreatedAt:yyyy-MM-dd HH:mm:ss} - {threadMessage.Role,10}: ");
-            foreach (MessageContent contentItem in threadMessage.ContentItems)
-            {
-                if (contentItem is MessageTextContent textItem)
-                {
-                    Console.Write(textItem.Text);
-                    chatHistory.Messages.Add(textItem);
-                }
-                else if (contentItem is MessageImageFileContent imageFileItem)
-                {
-                    Console.Write($"<image from ID: {imageFileItem.FileId}");
-                }
-                Console.WriteLine();
-            }
-        }
+        List<ChatMessageDto> messageDtos = [.. messages
+        .Select(m => new ChatMessageDto(
+            m.Role.ToString(),
+            string.Join("\n", m.ContentItems.OfType<MessageTextContent>().Select(c => c.Text))
+        ))];
 
-        return Ok(chatHistory);
+        return Ok(messageDtos);
     }
 }
 
-public record ChatHistory
-{
-    public required string ThreadId { get; set; }
-    public required List<MessageTextContent> Messages { get; set; }
-}
+public record ChatMessageDto(string Role, string Text);
 
-public record ChatRequest
+public record ChatHistoryRequest
 {
-    public required string Message { get; init; }
-    public required string ThreadId { get; init; }
-    public required string UserEmail { get; init; }
-}
-
-public record CreateThreadRequest
-{
-    public required WorkflowStage CurrentWorkflowStage { get; init; }
+    public required string WorkflowStageName { get; init; }
+    public required int DatasetId { get; init; }
 }

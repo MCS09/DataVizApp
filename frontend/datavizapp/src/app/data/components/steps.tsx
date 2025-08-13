@@ -9,7 +9,7 @@ type Step = {
 const steps: Step[] = [
   { label: "Select", route: ROUTES.datasetSelectionPage },
   { label: "Clean", route: ROUTES.datasetCleaningPage },
-  { label: "tbc", route: "/data/tbc" },
+  { label: "Visualization", route: ROUTES.datasetVisualizationPage },
   { label: "tbc2", route: "/data/tbc2" },
 ];
 

@@ -20,13 +20,25 @@ namespace DataVizApp.Services
             return thread.Id;
         }
 
-        private string? GetAgentIdByKey(string agentKey) =>
-            agentKey.ToLower() switch
+        public Uri GetServiceUrl()
+        {
+            return new Uri(_agentsConfig.Endpoint);
+        }
+
+        private string? GetAgentIdByKey(AgentType agentType) =>
+            agentType switch
             {
-                "cleaning" => _agentsConfig.Agents.Cleaning,
-                "dataset" => _agentsConfig.Agents.Dataset,
-                "visualization" => _agentsConfig.Agents.Visualization,
+                AgentType.Cleaning => _agentsConfig.Agents.Cleaning,
+                AgentType.Dataset => _agentsConfig.Agents.Dataset,
+                AgentType.Visualization => _agentsConfig.Agents.Visualization,
                 _ => null
             };
+
+        public enum AgentType
+        {
+            Cleaning = 1,
+            Dataset = 2,
+            Visualization = 3
+        }
     }
 }

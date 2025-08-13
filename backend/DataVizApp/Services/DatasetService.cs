@@ -56,6 +56,12 @@ namespace DataVizApp.Services
             return dataset;
         }
 
+        public async Task<WorkflowStage?> GetWorkflowStageByDatasetIdAsync(int datasetId, string stageName)
+        {
+            return await _appDbContext.WorkflowStages
+                .FirstOrDefaultAsync(ws => ws.DatasetId == datasetId && ws.WorkflowStageName == stageName);
+        }
+
         public async Task<bool> DeleteDatasetAsync(int id)
         {
             var dataset = await _appDbContext.Datasets.FindAsync(id);
