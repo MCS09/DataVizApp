@@ -2,3 +2,6 @@
 /bin/
 /obj/
 /sql/
+# env
+/.env
+/.env.local

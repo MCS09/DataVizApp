@@ -1,11 +1,12 @@
 'use client';
-import { useCallback } from "react";
+import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
 import GoogleDrivePicker, { GoogleDriveFileMetadata } from "../components/googleDrivePicker";
-import { useDataContext } from "../DataContext";
+import { ROUTES } from "@/constants/routes";
 
 export default function DatasetSelectionPage() {
-  const { metadata, setMetadata, accessToken, setAccessToken } = useDataContext();
+  const [metadata, setMetadata] = useState<GoogleDriveFileMetadata | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const router = useRouter();
 
   const handleFilePicked = useCallback(
@@ -13,12 +14,13 @@ export default function DatasetSelectionPage() {
       setMetadata(newMetadata);
       setAccessToken(newAccessToken);
     },
-    [setMetadata, setAccessToken]
+    []
   );
 
   const handleConfirm = useCallback(() => {
     if (metadata && accessToken) {
-      router.push("/data/data-cleaning");
+      sessionStorage.setItem("pageData", JSON.stringify({ id: metadata.id, accessToken }));
+      router.push(ROUTES.datasetCleaningPage);
     }
   }, [metadata, accessToken, router]);
 

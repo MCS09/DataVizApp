@@ -7,6 +7,7 @@ import ReactMarkdown from "react-markdown";
 
 export default function Page() {
   const [input, setInput] = useState("");
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || '/api/chat';
 
   const { messages, sendMessage } = useChat({
     transport: new DefaultChatTransport({

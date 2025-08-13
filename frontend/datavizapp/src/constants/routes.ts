@@ -1,7 +1,8 @@
 export const ROUTES = {
   home: "/",
-  datasetSelectionPage: "/data/data-selection",
-  datasetCleaningPage: "/data/data-cleaning",
+  datasetSelectionPage: "/data/selection",
+  datasetCleaningPage: "/data/pipeline/cleaning",
+  datasetVisualizationPage: "/data/pipeline/visualization",
   loginPage: "/auth/login",
 
 };
