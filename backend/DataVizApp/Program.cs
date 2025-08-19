@@ -6,6 +6,10 @@ using DataVizApp.Services;
 using Azure.AI.Projects;
 using Azure.Identity;
 using DataVizApp.Models;
+
+// Load .env file
+Env.Load();
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
@@ -13,8 +17,6 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Load .env file
-Env.Load();
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -57,6 +59,16 @@ builder.Services.AddDbContext<CosmosDbContext>(options =>
 
 builder.Services.AddScoped<DatasetService>();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("DevelopmentCorsPolicy", builder =>
+    {
+        builder.WithOrigins("http://localhost:3000")
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
@@ -64,6 +76,9 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    // Enable CORS in development only
+    app.UseCors("DevelopmentCorsPolicy");
 }
 
 app.UseHttpsRedirection();
