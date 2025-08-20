@@ -39,35 +39,45 @@ builder.Services.AddSingleton(sp =>
 
 builder.Services.AddSingleton<AgentService>();
 
-// Configure Azure Cosmos DB (SQL API)
+builder.Services.AddScoped<DatasetService>();
+
+// Read Cosmos DB configuration
 string? cosmosAccountEndpoint = builder.Configuration["CosmosDb:AccountEndpoint"];
 string? cosmosAccountKey = builder.Configuration["CosmosDb:AccountKey"];
 string? cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"];
 
-if (string.IsNullOrEmpty(cosmosAccountEndpoint) || string.IsNullOrEmpty(cosmosAccountKey) || string.IsNullOrEmpty(cosmosDatabaseName))
+// Development-only settings
+if (builder.Environment.IsDevelopment())
 {
-    throw new InvalidOperationException("Cosmos DB configuration is missing.");
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("DevelopmentCorsPolicy", builder =>
+        {
+            builder.WithOrigins("http://localhost:3000")
+                .AllowAnyMethod()
+                .AllowAnyHeader();
+        });
+    });
 }
 
-builder.Services.AddDbContext<CosmosDbContext>(options =>
+// Register CosmosDbContext if all config values are present
+if (!string.IsNullOrEmpty(cosmosAccountEndpoint) &&
+    !string.IsNullOrEmpty(cosmosAccountKey) &&
+    !string.IsNullOrEmpty(cosmosDatabaseName))
 {
-    options.UseCosmos(
-        cosmosAccountEndpoint,
-        cosmosAccountKey,
-        cosmosDatabaseName);
-});
-
-builder.Services.AddScoped<DatasetService>();
-
-builder.Services.AddCors(options =>
-{
-    options.AddPolicy("DevelopmentCorsPolicy", builder =>
+    builder.Services.AddDbContext<CosmosDbContext>(options =>
     {
-        builder.WithOrigins("http://localhost:3000")
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        options.UseCosmos(
+            cosmosAccountEndpoint,
+            cosmosAccountKey,
+            cosmosDatabaseName);
     });
-});
+}
+else
+{
+    throw new Exception("⚠️ Cosmos DB configuration is missing – skipping CosmosDbContext registration.");
+}
+
 
 var app = builder.Build();
 
