@@ -8,6 +8,3 @@
 # env
 /.env
 /.env.local
-# appsettings
-/appsettings.json
-/appsettings.Development.json

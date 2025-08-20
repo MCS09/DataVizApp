@@ -10,6 +10,7 @@ using DataVizApp.Models;
 // Load .env file
 Env.Load();
 
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
@@ -17,50 +18,70 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+static string EnvVarLoader(string envVar)
+{
+    string var = Environment.GetEnvironmentVariable(envVar) ?? throw new (envVar + " not loaded");
+    return var;
+}
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-var cosmosConnectionString = builder.Configuration.GetConnectionString("CosmosDb");
-var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"];
+
+string connectionString = EnvVarLoader("SQLAZURECONNSTR_DefaultConnection");
+string cosmos_endpoint = EnvVarLoader("DOCDBCONNSTR_CosmosDb_AccountEndpoint");
+string cosmos_key = EnvVarLoader("DOCDBCONNSTR_CosmosDb_AccountKey");
+string cosmos_dbname = EnvVarLoader("DOCDBCONNSTR_CosmosDb_DatabaseName");
+string ai_endpoint = EnvVarLoader("AzureAIAgents_Endpoint");
+string cleaning_agent = EnvVarLoader("AzureAIAgents_Agent_Cleaning");
+string dataset_agent = EnvVarLoader("AzureAIAgents_Agent_Dataset");
+string visualization_agent = EnvVarLoader("AzureAIAgents_Agent_Visualization");
 
 // Configure Entity Framework Core with SQL Server
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString)
 );
 
-// Bind AzureAIAgents section to AzureAIAgentsOptions
-builder.Services.Configure<AzureAIAgentsOptions>(
-    builder.Configuration.GetSection("AzureAIAgents")
-);
-
 // Also register AIProjectClient using the bound config
+Console.WriteLine(ai_endpoint);
 builder.Services.AddSingleton(sp =>
 {
-    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AzureAIAgentsOptions>>().Value;
-    return new AIProjectClient(new Uri(options.Endpoint), new DefaultAzureCredential());
+    return new AIProjectClient(new Uri(ai_endpoint), new DefaultAzureCredential());
+});
+
+builder.Services.Configure<AzureAIAgentsOptions>(options =>
+{
+    options.Endpoint = ai_endpoint;
+    options.Agents = new AzureAIAgentsOptions.AgentsConfig
+    {
+        Cleaning = cleaning_agent,
+        Dataset = dataset_agent,
+        Visualization = visualization_agent
+    };
 });
 
 builder.Services.AddSingleton<AgentService>();
 
-// Configure Azure Cosmos DB (SQL API)
-
+// Configure Azure Cosmos DB
 builder.Services.AddDbContext<CosmosDbContext>(options =>
 {
     options.UseCosmos(
-        cosmosConnectionString,
-        cosmosDatabaseName);
+        cosmos_endpoint,
+        cosmos_key,
+        cosmos_dbname);
 });
 
 builder.Services.AddScoped<DatasetService>();
 
-builder.Services.AddCors(options =>
+if (builder.Environment.IsDevelopment())
 {
-    options.AddPolicy("DevelopmentCorsPolicy", builder =>
+    builder.Services.AddCors(options =>
     {
-        builder.WithOrigins("http://localhost:3000")
-               .AllowAnyMethod()
-               .AllowAnyHeader();
+        options.AddPolicy("DevelopmentCorsPolicy", builder =>
+        {
+            builder.WithOrigins("http://localhost:3000")
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
     });
-});
+}
 
 var app = builder.Build();
 
