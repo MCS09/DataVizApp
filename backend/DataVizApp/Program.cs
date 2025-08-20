@@ -19,6 +19,8 @@ builder.Services.AddSwaggerGen();
 
 
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var cosmosConnectionString = builder.Configuration.GetConnectionString("CosmosDb");
+var cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"];
 
 // Configure Entity Framework Core with SQL Server
 builder.Services.AddDbContext<AppDbContext>(options =>
@@ -39,45 +41,26 @@ builder.Services.AddSingleton(sp =>
 
 builder.Services.AddSingleton<AgentService>();
 
+// Configure Azure Cosmos DB (SQL API)
+
+builder.Services.AddDbContext<CosmosDbContext>(options =>
+{
+    options.UseCosmos(
+        cosmosConnectionString,
+        cosmosDatabaseName);
+});
+
 builder.Services.AddScoped<DatasetService>();
 
-// Read Cosmos DB configuration
-string? cosmosAccountEndpoint = builder.Configuration["CosmosDb:AccountEndpoint"];
-string? cosmosAccountKey = builder.Configuration["CosmosDb:AccountKey"];
-string? cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"];
-
-// Development-only settings
-if (builder.Environment.IsDevelopment())
+builder.Services.AddCors(options =>
 {
-    builder.Services.AddCors(options =>
+    options.AddPolicy("DevelopmentCorsPolicy", builder =>
     {
-        options.AddPolicy("DevelopmentCorsPolicy", builder =>
-        {
-            builder.WithOrigins("http://localhost:3000")
-                .AllowAnyMethod()
-                .AllowAnyHeader();
-        });
+        builder.WithOrigins("http://localhost:3000")
+               .AllowAnyMethod()
+               .AllowAnyHeader();
     });
-}
-
-// Register CosmosDbContext if all config values are present
-if (!string.IsNullOrEmpty(cosmosAccountEndpoint) &&
-    !string.IsNullOrEmpty(cosmosAccountKey) &&
-    !string.IsNullOrEmpty(cosmosDatabaseName))
-{
-    builder.Services.AddDbContext<CosmosDbContext>(options =>
-    {
-        options.UseCosmos(
-            cosmosAccountEndpoint,
-            cosmosAccountKey,
-            cosmosDatabaseName);
-    });
-}
-else
-{
-    throw new Exception("⚠️ Cosmos DB configuration is missing – skipping CosmosDbContext registration.");
-}
-
+});
 
 var app = builder.Build();
 
