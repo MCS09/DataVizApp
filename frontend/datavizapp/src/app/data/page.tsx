@@ -1,3 +1,4 @@
+"use client"
 import RedirectButton from "../navigation/components/redirectButton";
 
 export default function DashboardPage() {

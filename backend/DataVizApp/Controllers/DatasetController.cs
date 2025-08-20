@@ -50,21 +50,21 @@ namespace DataVizApp.Controllers
             return CreatedAtAction(nameof(GetDataset), new { datasetId = newDataset.DatasetId }, newDataset);
         }
 
-        public record RecordsRequest(int DatasetId, List<DatasetRecord> NewRecords);
+        public record GetRecordsRequest(int DatasetId, int RowStart, int RowEnd);
+        public record SetRecordsRequest(int DatasetId, List<DatasetRecordDto> NewRecords);
 
-        [HttpPost("addRecords")]
-        public async Task<IActionResult> AddRecords([FromBody] RecordsRequest request)
+        [HttpPost("getRecords")]
+        public async Task<IActionResult> GetRecords([FromBody] GetRecordsRequest request)
         {
             Dataset? dataset = await _datasetService.GetDatasetByIdAsync(request.DatasetId);
             if (dataset == null) return NotFound("Dataset not found.");
 
             // Get columns
-            bool success = await _datasetService.AddRecordsAsync(request.NewRecords);
-            if (!success) return BadRequest("Failed to update dataset with new records.");
-            return NoContent();
+            List<DatasetRecord> records = await _datasetService.GetRecordsByDatasetIdAsync(request.DatasetId, request.RowStart, request.RowEnd);
+            return Ok(new { records });
         }
         [HttpPost("setRecords")]
-        public async Task<IActionResult> SetRecords(RecordsRequest request)
+        public async Task<IActionResult> SetRecords(SetRecordsRequest request)
         {
             Dataset? dataset = await _datasetService.GetDatasetByIdAsync(request.DatasetId);
             if (dataset == null) return NotFound("Dataset not found.");

@@ -6,6 +6,7 @@ using DataVizApp.Models;
 using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Collections;
+using DataVizApp.Models.DTO;
 
 namespace DataVizApp.Services
 {
@@ -124,20 +125,29 @@ namespace DataVizApp.Services
                 .ToListAsync();
         }
 
-        public async Task<bool> SetRecordsAsync(int datasetId, List<DatasetRecord> records)
+        public async Task<bool> SetRecordsAsync(int datasetId, List<DatasetRecordDto> recordDtos)
         {
-            if (records.Count > 200)
+            if (recordDtos.Count > 200)
                 throw new ArgumentException("Please batch your records into smaller sets of 200 or less.");
 
+            // convert to DatasetRecord
+            List<DatasetRecord> newRecords = [.. recordDtos
+                .Select(e => new DatasetRecord
+                {
+                    RecordNumber = e.RecordNumber,
+                    Values = e.Values,
+                    DatasetId = datasetId
+                })];
+
             // Ensure DatasetId is set for all new records
-            records.ForEach(r => r.DatasetId = datasetId);
+            newRecords.ForEach(r => r.DatasetId = datasetId);
 
             // Remove existing records without fetching them into memory
             var existingRecords = _cosmosDbContext.DatasetRecords
                 .Where(r => r.DatasetId == datasetId);
             _cosmosDbContext.DatasetRecords.RemoveRange(existingRecords);
 
-            return await AddRecordsAsync(records);
+            return await AddRecordsAsync(newRecords);
         }
 
         public async Task<bool> AddRecordsAsync(List<DatasetRecord> records)
