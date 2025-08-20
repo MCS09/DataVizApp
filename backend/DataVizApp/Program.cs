@@ -25,10 +25,10 @@ static string EnvVarLoader(string envVar)
 }
 
 
-string connectionString = EnvVarLoader("SQLAZURECONNSTR_DefaultConnection");
-string cosmos_endpoint = EnvVarLoader("DOCDBCONNSTR_CosmosDb_AccountEndpoint");
-string cosmos_key = EnvVarLoader("DOCDBCONNSTR_CosmosDb_AccountKey");
-string cosmos_dbname = EnvVarLoader("DOCDBCONNSTR_CosmosDb_DatabaseName");
+string connectionString = EnvVarLoader("SQLAzure_DefaultConnection");
+string cosmos_endpoint = EnvVarLoader("CosmosDb_AccountEndpoint");
+string cosmos_key = EnvVarLoader("CosmosDb_AccountKey");
+string cosmos_dbname = EnvVarLoader("CosmosDb_DatabaseName");
 string ai_endpoint = EnvVarLoader("AzureAIAgents_Endpoint");
 string cleaning_agent = EnvVarLoader("AzureAIAgents_Agent_Cleaning");
 string dataset_agent = EnvVarLoader("AzureAIAgents_Agent_Dataset");
@@ -40,7 +40,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 );
 
 // Also register AIProjectClient using the bound config
-Console.WriteLine(ai_endpoint);
 builder.Services.AddSingleton(sp =>
 {
     return new AIProjectClient(new Uri(ai_endpoint), new DefaultAzureCredential());
