@@ -4,6 +4,9 @@ using Microsoft.EntityFrameworkCore;
 using DataVizApp.Data;
 using DataVizApp.Models;
 using System.Linq;
+using System.Reflection.Metadata.Ecma335;
+using System.Collections;
+using DataVizApp.Models.DTO;
 
 namespace DataVizApp.Services
 {
@@ -85,6 +88,14 @@ namespace DataVizApp.Services
             // Ensure DatasetId is set for all new columns
             columns.ForEach(c => c.DatasetId = datasetId);
 
+            // Ensure order follows 0..*
+            columns.Sort((a, b) => a.ColumnNumber.CompareTo(b.ColumnNumber));
+            for (int i = 0; i < columns.Count; i++)
+            {
+                if (columns[i].ColumnNumber != i)
+                    throw new ArgumentException("Column numbers must start at 0 and increment by 1 with no gaps.");
+            }
+
             // Remove existing columns without fetching into memory
             var existingColumns = _appDbContext.DatasetColumns
                 .Where(c => c.DatasetId == datasetId);
@@ -107,20 +118,36 @@ namespace DataVizApp.Services
                 .ToListAsync();
         }
 
-        public async Task<bool> SetRecordsAsync(int datasetId, List<DatasetRecord> records)
+        public async Task<List<DatasetColumn>> GetColumnByDatasetIdAsync(int datasetId)
         {
-            if (records.Count > 200)
+            return await _appDbContext.DatasetColumns
+                .Where(c => c.DatasetId == datasetId)
+                .ToListAsync();
+        }
+
+        public async Task<bool> SetRecordsAsync(int datasetId, List<DatasetRecordDto> recordDtos)
+        {
+            if (recordDtos.Count > 200)
                 throw new ArgumentException("Please batch your records into smaller sets of 200 or less.");
 
+            // convert to DatasetRecord
+            List<DatasetRecord> newRecords = [.. recordDtos
+                .Select(e => new DatasetRecord
+                {
+                    RecordNumber = e.RecordNumber,
+                    Values = e.Values,
+                    DatasetId = datasetId
+                })];
+
             // Ensure DatasetId is set for all new records
-            records.ForEach(r => r.DatasetId = datasetId);
+            newRecords.ForEach(r => r.DatasetId = datasetId);
 
             // Remove existing records without fetching them into memory
             var existingRecords = _cosmosDbContext.DatasetRecords
                 .Where(r => r.DatasetId == datasetId);
             _cosmosDbContext.DatasetRecords.RemoveRange(existingRecords);
 
-            return await AddRecordsAsync(records);
+            return await AddRecordsAsync(newRecords);
         }
 
         public async Task<bool> AddRecordsAsync(List<DatasetRecord> records)
@@ -131,6 +158,18 @@ namespace DataVizApp.Services
             await _cosmosDbContext.DatasetRecords.AddRangeAsync(records);
             await _cosmosDbContext.SaveChangesAsync();
             return true;
+        }
+
+        public async Task<string> GetAgentThreadAsync(int datasetId, string workflowStageName)
+        {
+            WorkflowStage workflowStage = await _appDbContext.WorkflowStages.FirstOrDefaultAsync(e => e.WorkflowStageName == workflowStageName && e.DatasetId == datasetId) ?? throw new Exception("Error finding workflow");
+            return workflowStage.AzureAgentThreadId ?? throw new Exception("Agent Thread ID is not set");
+        }
+
+        public async Task<List<string>> GetWorkflowStagesNames()
+        {
+            List<string> names = await _appDbContext.WorkflowStagesNames.Select(e => e.WorkflowStageName).ToListAsync();
+            return names;
         }
     }
 }

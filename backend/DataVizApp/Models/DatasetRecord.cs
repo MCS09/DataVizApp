@@ -17,8 +17,8 @@ public class DatasetRecord
 
 public class CellValue
 {
-    [JsonPropertyName("column_id")]
-    public int ColumnId { get; set; }
+    [JsonPropertyName("column_number")]
+    public int ColumnNumber { get; set; }
 
     [JsonPropertyName("value")]
     public required string Value { get; set; } // Could be string, number, date, etc.

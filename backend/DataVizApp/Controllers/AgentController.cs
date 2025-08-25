@@ -9,55 +9,51 @@ using Microsoft.Extensions.Options;
 using DataVizApp.Services;
 
 namespace DataVizApp.Controllers;
+
 [ApiController]
 [Route("api/[controller]")]
-public class AgentChatController(AgentService agentService, DatasetService datasetService) : ControllerBase
+public class AgentChatController(AgentService agentService) : ControllerBase
 {
     private readonly AgentService _agentService = agentService;
 
-    private readonly DatasetService _datasetService = datasetService;
 
-
-    [HttpPost("getChatHistory")]
-    public async Task<IActionResult> GetChatHistory([FromBody] ChatHistoryRequest request)
+    [HttpGet("getChatHistoryById")]
+    public async Task<IActionResult> GetChatHistoryById([FromQuery] ChatHistoryByIdRequest request)
     {
+        List<ChatMessageDto> messageDtos = await _agentService.GetChatHistoryByIdAsync(request.ThreadId);
+        return Ok(new { messageDtos });
+    }
 
-        // Get Thread
-        WorkflowStage? workflowStage = await _datasetService.GetWorkflowStageByDatasetIdAsync(request.DatasetId, request.WorkflowStageName);
-        if (workflowStage == null)
+    public record PromptAgentRequest(string ThreadId, AgentType AgentId, string Text);
+
+
+    [HttpPost("prompt")]
+    public async Task<IActionResult> PromptAgent([FromBody] PromptAgentRequest promptAgentRequest)
+    {
+        string agentId = _agentService.GetAgentIdByKey(promptAgentRequest.AgentId);
+        ChatMessageDto chatMessageDto = new("user", promptAgentRequest.Text);
+        try
         {
-            return NotFound("Workflow stage not found.");
+            // Send the prompt to the agent and run it
+            await _agentService.SendMessageAndRunAgentAsync(
+                promptAgentRequest.ThreadId,
+                agentId,
+                chatMessageDto
+            );
+
+            return Ok("Message sent and agent run initiated successfully.");
         }
-
-
-        Uri endpointUri = _agentService.GetServiceUrl();
-
-        AIProjectClient projectClient = new(endpointUri, new DefaultAzureCredential());
-
-        PersistentAgentsClient agentsClient = projectClient.GetPersistentAgentsClient();
-
-        Pageable<PersistentThreadMessage> messages = agentsClient.Messages.GetMessages(
-            workflowStage.AzureAgentThreadId, order: ListSortOrder.Ascending);
-
-        // Flatten message content items to a list of MessageTextContent
-        List<MessageTextContent> messageTextContents = [.. messages
-            .SelectMany(m => m.ContentItems)
-            .OfType<MessageTextContent>()];
-
-        List<ChatMessageDto> messageDtos = [.. messages
-        .Select(m => new ChatMessageDto(
-            m.Role.ToString(),
-            string.Join("\n", m.ContentItems.OfType<MessageTextContent>().Select(c => c.Text))
-        ))];
-
-        return Ok(messageDtos);
+        catch (Exception ex)
+        {
+            return BadRequest(ex.Message);
+        }
     }
 }
 
-public record ChatMessageDto(string Role, string Text);
+public record ChatHistoryByIdRequest(string ThreadId);
 
-public record ChatHistoryRequest
-{
-    public required string WorkflowStageName { get; init; }
-    public required int DatasetId { get; init; }
-}
+public record Prompt(
+    string ThreadId,
+    string AgentId,
+    string Message
+);

@@ -9,6 +9,8 @@ public record DatasetColumnDto
 {
     public required string ColumnName { get; set; }
     public required string DataType { get; set; }
+
+    public required string ColumnDescription { get; set; }
     public int ColumnNumber { get; set; }
     public string? Relationship { get; set; }
 }

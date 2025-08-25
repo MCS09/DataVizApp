@@ -6,6 +6,11 @@ using DataVizApp.Services;
 using Azure.AI.Projects;
 using Azure.Identity;
 using DataVizApp.Models;
+
+// Load .env file
+Env.Load();
+
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container
@@ -13,49 +18,69 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Load .env file
-Env.Load();
+static string EnvVarLoader(string envVar)
+{
+    string var = Environment.GetEnvironmentVariable(envVar) ?? throw new (envVar + " not loaded");
+    return var;
+}
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+string connectionString = EnvVarLoader("SQLAzure_DefaultConnection");
+string cosmos_endpoint = EnvVarLoader("CosmosDb_AccountEndpoint");
+string cosmos_key = EnvVarLoader("CosmosDb_AccountKey");
+string cosmos_dbname = EnvVarLoader("CosmosDb_DatabaseName");
+string ai_endpoint = EnvVarLoader("AzureAIAgents_Endpoint");
+string cleaning_agent = EnvVarLoader("AzureAIAgents_Agent_Cleaning");
+string dataset_agent = EnvVarLoader("AzureAIAgents_Agent_Dataset");
+string visualization_agent = EnvVarLoader("AzureAIAgents_Agent_Visualization");
 
 // Configure Entity Framework Core with SQL Server
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(connectionString)
 );
 
-// Bind AzureAIAgents section to AzureAIAgentsOptions
-builder.Services.Configure<AzureAIAgentsOptions>(
-    builder.Configuration.GetSection("AzureAIAgents")
-);
-
 // Also register AIProjectClient using the bound config
 builder.Services.AddSingleton(sp =>
 {
-    var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<AzureAIAgentsOptions>>().Value;
-    return new AIProjectClient(new Uri(options.Endpoint), new DefaultAzureCredential());
+    return new AIProjectClient(new Uri(ai_endpoint), new DefaultAzureCredential());
+});
+
+builder.Services.Configure<AzureAIAgentsOptions>(options =>
+{
+    options.Endpoint = ai_endpoint;
+    options.Agents = new AzureAIAgentsOptions.AgentsConfig
+    {
+        Cleaning = cleaning_agent,
+        Dataset = dataset_agent,
+        Visualization = visualization_agent
+    };
 });
 
 builder.Services.AddSingleton<AgentService>();
 
-// Configure Azure Cosmos DB (SQL API)
-string? cosmosAccountEndpoint = builder.Configuration["CosmosDb:AccountEndpoint"];
-string? cosmosAccountKey = builder.Configuration["CosmosDb:AccountKey"];
-string? cosmosDatabaseName = builder.Configuration["CosmosDb:DatabaseName"];
-
-if (string.IsNullOrEmpty(cosmosAccountEndpoint) || string.IsNullOrEmpty(cosmosAccountKey) || string.IsNullOrEmpty(cosmosDatabaseName))
-{
-    throw new InvalidOperationException("Cosmos DB configuration is missing.");
-}
-
+// Configure Azure Cosmos DB
 builder.Services.AddDbContext<CosmosDbContext>(options =>
 {
     options.UseCosmos(
-        cosmosAccountEndpoint,
-        cosmosAccountKey,
-        cosmosDatabaseName);
+        cosmos_endpoint,
+        cosmos_key,
+        cosmos_dbname);
 });
 
 builder.Services.AddScoped<DatasetService>();
+
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("DevelopmentCorsPolicy", builder =>
+        {
+            builder.WithOrigins("http://localhost:3000")
+                   .AllowAnyMethod()
+                   .AllowAnyHeader();
+        });
+    });
+}
 
 var app = builder.Build();
 
@@ -64,6 +89,9 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+
+    // Enable CORS in development only
+    app.UseCors("DevelopmentCorsPolicy");
 }
 
 app.UseHttpsRedirection();

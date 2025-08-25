@@ -1,13 +1,13 @@
 namespace DataVizApp.Models;
 public class AzureAIAgentsOptions
 {
-    public string Endpoint { get; set; } = string.Empty;
-    public AgentsConfig Agents { get; set; } = new();
+    public required string Endpoint { get; set; }
+    public required AgentsConfig Agents { get; set; }
 
     public class AgentsConfig
     {
-        public string Cleaning { get; set; } = string.Empty;
-        public string Dataset { get; set; } = string.Empty;
-        public string Visualization { get; set; } = string.Empty;
+        public required string Cleaning { get; set; }
+        public required string Dataset { get; set; }
+        public required string Visualization { get; set; }
     }
 }
