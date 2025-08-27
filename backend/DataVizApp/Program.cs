@@ -107,6 +107,11 @@ var app = builder.Build();
 //     app.UseCors("DevelopmentCorsPolicy");
 // }
 
+
+app.UseHttpsRedirection();
+
+app.UseRouting();
+
 if (true) // Force dev environment
 {
     app.UseSwagger();
@@ -115,10 +120,6 @@ if (true) // Force dev environment
     // Enable CORS in development only
     app.UseCors("DevelopmentCorsPolicy");
 }
-
-app.UseHttpsRedirection();
-
-app.UseRouting();
 
 app.UseAuthorization();
 
