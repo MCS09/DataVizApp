@@ -117,9 +117,15 @@ if (true) // Force dev environment
     app.UseSwagger();
     app.UseSwaggerUI();
 
-    // Enable CORS in development only
-    app.UseCors("DevelopmentCorsPolicy");
+    // // Enable CORS in development only
+    // app.UseCors("DevelopmentCorsPolicy");
 }
+
+app.UseHttpsRedirection();
+
+app.UseRouting();
+
+app.UseCors("DevelopmentCorsPolicy");
 
 app.UseAuthorization();
 
