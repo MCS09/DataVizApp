@@ -69,7 +69,20 @@ builder.Services.AddDbContext<CosmosDbContext>(options =>
 
 builder.Services.AddScoped<DatasetService>();
 
-if (builder.Environment.IsDevelopment())
+// if (builder.Environment.IsDevelopment())
+// {
+//     builder.Services.AddCors(options =>
+//     {
+//         options.AddPolicy("DevelopmentCorsPolicy", builder =>
+//         {
+//             builder.WithOrigins("http://localhost:3000")
+//                    .AllowAnyMethod()
+//                    .AllowAnyHeader();
+//         });
+//     });
+// }
+
+if (true) // Force dev environment
 {
     builder.Services.AddCors(options =>
     {
@@ -85,7 +98,16 @@ if (builder.Environment.IsDevelopment())
 var app = builder.Build();
 
 // Configure the HTTP request pipeline
-if (app.Environment.IsDevelopment())
+// if (app.Environment.IsDevelopment())
+// {
+//     app.UseSwagger();
+//     app.UseSwaggerUI();
+
+//     // Enable CORS in development only
+//     app.UseCors("DevelopmentCorsPolicy");
+// }
+
+if (true) // Force dev environment
 {
     app.UseSwagger();
     app.UseSwaggerUI();
