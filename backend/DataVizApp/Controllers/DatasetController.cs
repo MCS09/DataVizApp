@@ -36,13 +36,12 @@ namespace DataVizApp.Controllers
                 UserId = datasetDto.UserId
             };
 
-            DatasetColumn[] columns = [.. datasetDto.Columns.Select((col) => new DatasetColumn
+            DatasetColumnDto[] columns = [.. datasetDto.Columns.Select((col) => new DatasetColumnDto
             {
                 ColumnName = col.ColumnName,
                 ColumnDescription = col.ColumnDescription,
                 DataType = col.DataType,
-                ColumnNumber = col.ColumnNumber,
-                DatasetId = newDataset.DatasetId
+                ColumnNumber = col.ColumnNumber
             })];
 
             await _datasetService.CreateDatasetAsync(newDataset);
@@ -50,30 +49,41 @@ namespace DataVizApp.Controllers
             return CreatedAtAction(nameof(GetDataset), new { datasetId = newDataset.DatasetId }, newDataset);
         }
 
-        public record GetRecordsRequest(int DatasetId, int RowStart, int RowEnd);
-        public record SetRecordsRequest(int DatasetId, List<DatasetRecordDto> NewRecords);
+        public record ColumnDataDto(int DatasetId, int ColumnNumber, List<DataRecordDto> DataRecords);
 
-        [HttpPost("getRecords")]
-        public async Task<IActionResult> GetRecords([FromBody] GetRecordsRequest request)
+        public record GetColumnDataRequest(int DatasetId, int ColumnNumber);
+
+        [HttpPost("getColumnData")]
+        public async Task<ActionResult<ColumnDataDto>> GetColumnData([FromBody] GetColumnDataRequest request)
         {
             Dataset? dataset = await _datasetService.GetDatasetByIdAsync(request.DatasetId);
             if (dataset == null) return NotFound("Dataset not found.");
 
             // Get columns
-            List<DatasetRecord> records = await _datasetService.GetRecordsByDatasetIdAsync(request.DatasetId, request.RowStart, request.RowEnd);
-            return Ok(new { records });
+            List<DataRecord> records = await _datasetService.GetColumnDataByIdAsync(request.DatasetId, request.ColumnNumber);
+
+            List<DataRecordDto> dtoRecords = [.. records.Select(r => new DataRecordDto(r.RecordNumber, r.Value))];
+
+            ColumnDataDto result = new(request.DatasetId, request.ColumnNumber, dtoRecords);
+
+            return Ok(result);
+            
         }
-        [HttpPost("setRecords")]
-        public async Task<IActionResult> SetRecords(SetRecordsRequest request)
+        
+        [HttpPost("setColumnData")]
+        public async Task<IActionResult> SetColumnData([FromBody] ColumnDataDto request)
         {
             Dataset? dataset = await _datasetService.GetDatasetByIdAsync(request.DatasetId);
             if (dataset == null) return NotFound("Dataset not found.");
-            bool success = await _datasetService.SetRecordsAsync(request.DatasetId, request.NewRecords);
+
+            bool success = await _datasetService.SetColumnDataAsync(request.DatasetId, request.ColumnNumber, request.DataRecords);
             if (!success) return BadRequest("Failed to update dataset with new records.");
             return NoContent();
         }
 
-        public record DatasetColumnsRequest(int DatasetId, List<DatasetColumn> NewColumns);
+
+
+        public record DatasetColumnsRequest(int DatasetId, List<DatasetColumnDto> NewColumns);
         [HttpPost("setColumns")]
         public async Task<IActionResult> SetColumns([FromBody] DatasetColumnsRequest request)
         {

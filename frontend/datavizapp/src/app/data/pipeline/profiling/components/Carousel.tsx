@@ -5,18 +5,21 @@ export type ColumnProfile = {
     columnDescription: string;
     dataType: string;
     columnNumber: number;
+    relationship: string;
 }
 
 export function CarouselItem({
-  column,
+  columnHeader,
+  columnProfile,
   updateColumn,
 }: {
-  column: ColumnProfile;
+  columnHeader: string
+  columnProfile: ColumnProfile;
   updateColumn: (updatedColumn: ColumnProfile) => void;
 }) {
   return (
     <div className="carousel-item">
-      <Fieldset column={column} updateColumn={updateColumn} />
+      <Fieldset columnHeader={columnHeader} column={columnProfile} updateColumn={updateColumn} />
     </div>
   );
 }

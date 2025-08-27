@@ -1,8 +1,9 @@
 "use client";
 
 import { ChatBubble, ChatBubbleParam } from "@/app/components/ai/ChatBubble";
+import Button from "@/app/components/input/Button";
 import { AGENT_ENUM_BY_ROUTE, ROUTES, WORKFLOW_STAGES_NAMES_BY_ROUTE } from "@/constants/routes";
-import { fetchData } from "@/lib/api";
+import { fetchData, safeJsonParse } from "@/lib/api";
 import useStore from "@/lib/store";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -11,6 +12,16 @@ type ChatHistoryRequestDto = {
   role: string;
   text: string;
 };
+
+export type AIResponse<T> = {
+  updatedData: T,
+  textResponse: string
+}
+
+export type UserPrompt = {
+  workingData: string,
+  prompt: string
+}
 
 // Get thread id
 const getThreadId = async ({ datasetId, workflowStageName }: {
@@ -86,15 +97,25 @@ export default function DataPagesLayout({
   children: React.ReactNode;
 }) {
   const [chatHistory, setChatHistory] = useState<ChatBubbleParam[]>([]);
-  const [datasetId, setDatasetId] = useState(9);
   const [prompt, setPrompt] = useState("");
   const [sentPrompt, setSentPrompt] = useState("");
   const [threadId, setThreadId] = useState("");
   const pathname = usePathname();
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { sharedState, updateState } = useStore();
+  const [datasetId, setDatasetId] = useState<number>();
+
+  // load datasetId (From session store)
+  useEffect(() => {
+    const stored = sessionStorage.getItem("sessionFileData");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setDatasetId(parsed.datasetId);
+    }
+  }, []);
 
   useEffect(() => {
+    if (!datasetId) return;
     (async () => {
       const workflowStageName = getWorkflowStageName(pathname);
       const res = await getThreadId({ datasetId, workflowStageName })
@@ -104,19 +125,12 @@ export default function DataPagesLayout({
 
   useEffect(() => {
     const fetchChatHistory = async () => {
-      const stored = sessionStorage.getItem("datasetId");
-      if (!stored) {
-        console.warn("Missing datasetId");
-        return;
-      }
+      // const stored = sessionStorage.getItem("datasetId");
+      // if (!stored) {
+      //   console.warn("Missing datasetId");
+      //   return;
+      // }
       // const datasetId = JSON.parse(stored)["datasetId"];
-
-      setDatasetId(9)
-
-      if (!datasetId) {
-        console.warn("Missing datasetId");
-        return;
-      }
 
       if (!threadId){
         console.warn("Thread Id is not yet loaded");
@@ -127,7 +141,7 @@ export default function DataPagesLayout({
 
       try {
         const history = await getChatHistory(threadId);
-        if (history) {
+        if (history.length != 0) {
           setChatHistory(
             history.map((item) => ({
               message: item.text,
@@ -137,7 +151,7 @@ export default function DataPagesLayout({
           const last = history[history.length - 1];
           if(last && last.role == "assistant" && last.text){ // redundant but safe check
             // extract updatedData
-            const res = JSON.parse(last.text);
+            const res = safeJsonParse<AIResponse<string>>(last.text);
             if (res?.updatedData){
               updateState({aiResponseContext: last.text});
             }
@@ -152,12 +166,16 @@ export default function DataPagesLayout({
   }, [threadId, chatHistory]);
 
   useEffect(() => {
+    if (!threadId || !sentPrompt) return;
     const executePrompt = async () => {
       const agentId = getAgentIdByPage(pathname);
 
       if ((agentId!= -1) && sentPrompt){
-        const engineeredPrompt = `{"workingData": ${sharedState.aiContext}, "prompt": ${sentPrompt}}`
-        const success = await promptAgent({threadId, agentId, text: engineeredPrompt})
+        const engineeredPrompt: UserPrompt = {
+          workingData: sharedState.aiContext,
+          prompt: sentPrompt
+        };
+        const success = await promptAgent({threadId, agentId, text: JSON.stringify(engineeredPrompt)})
         if (success) setSentPrompt("");
 
       }
@@ -168,7 +186,7 @@ export default function DataPagesLayout({
 
     executePrompt();
     
-  }, [pathname, sentPrompt])
+  }, [pathname, sentPrompt, threadId])
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -207,9 +225,10 @@ export default function DataPagesLayout({
             onChange={(e) => setPrompt(e.target.value)}
           />
           {!sentPrompt && 
-          <button
-            className="btn w-2/12"
-            onClick={async () => {
+          <Button
+            label="Send"
+            className="btn btn-primary w-2/12"
+            action={async () => {
               if (prompt.trim()) {
                 setSentPrompt(prompt);
                 setChatHistory((prev) => [
@@ -219,9 +238,7 @@ export default function DataPagesLayout({
                 setPrompt("");
               }
             }}
-          >
-            Send
-          </button>
+          />
           }
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { DrivePickerElement } from "@googleworkspace/drive-picker-element";
+import Button from "@/app/components/input/Button";
 
 export interface GoogleDriveFileMetadata {
   id: string;
@@ -89,21 +90,11 @@ export default function GoogleDrivePicker({
 
   return (
     <div>
-      <button
-        onClick={handleOpenPicker}
+      <Button
+      label="Open Drive Picker"
+        action={handleOpenPicker}
         disabled={!isLibraryLoaded}
-        style={{
-          padding: "0.5rem 1rem",
-          backgroundColor: isLibraryLoaded ? "#1a73e8" : "#ccc",
-          color: "white",
-          border: "none",
-          borderRadius: "4px",
-          cursor: isLibraryLoaded ? "pointer" : "not-allowed",
-          marginBottom: "1rem",
-        }}
-      >
-        Open Drive Picker
-      </button>
+      />
 
       {isPickerVisible && (
         <drive-picker

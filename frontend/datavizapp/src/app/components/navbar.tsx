@@ -1,14 +1,15 @@
 "use client";
 import { APPNAME } from "@/constants/names";
 import { useSession } from "next-auth/react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import LogoutDialogButton from "../auth/logout/components/logoutDialogButton";
-import RedirectButton from "../navigation/components/redirectButton";
+import Button from "./input/Button";
 
 export default function NavBar() {
   const pathname = usePathname();
   const isAuthenticated = useSession().status === "authenticated";
   const showConsole = pathname === "/";
+  const router = useRouter();
 
   return (
     <div className="navbar bg-base-100 shadow-sm border-b border-base-300">
@@ -16,7 +17,7 @@ export default function NavBar() {
       <div className="flex-1"></div>
       <div className="flex gap-2">
         {isAuthenticated && <LogoutDialogButton />}
-        {showConsole && <RedirectButton label="Open Console" to="/data" />}
+        {showConsole && <Button label="Open Console" action={() => {router.push("/data")}} />}
       </div>
     </div>
   );

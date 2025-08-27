@@ -1,6 +1,6 @@
 
 export type Dataset = {
-  datasetId: string;
+  datasetId: number;
   userId: string;
 };
 

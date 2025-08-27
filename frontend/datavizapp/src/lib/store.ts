@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-interface SharedState {
+export interface SharedState {
   aiContext: string;
   aiResponseContext: string;
 }

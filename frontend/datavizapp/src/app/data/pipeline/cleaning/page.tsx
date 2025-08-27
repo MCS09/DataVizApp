@@ -3,18 +3,33 @@
 import { AgGridReact } from "ag-grid-react";
 import { useEffect, useState } from "react";
 import { ColDef } from "ag-grid-community";
-import { useLoadDataFrame, usePyFunctions } from "@/lib/hooks/cleaningHooks";
+import { usePyFunctions } from "@/lib/hooks/cleaningHooks";
+import useStore from "@/lib/store";
+import { useColumnData } from "@/lib/hooks/useColumnData";
 
 
 export default function CleaningPage() {
-  const {dataFrame, setFileData} = useLoadDataFrame();
+  const {columnData, datasetId, setColumnData, setColumnNumber, setDatasetId} = useColumnData();
   const [columnDefs, setColumnDefs] = useState<ColDef[] | null>(null);
+  const {sharedState, updateState} = useStore();
 
   // Load file data from session storage
   useEffect(() => {
-    const stored = sessionStorage.getItem("pageData");
-    if (stored) setFileData(JSON.parse(stored));
-  });
+    const stored = sessionStorage.getItem("sessionFileData");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setDatasetId(parsed.datasetId);
+    }
+  }, []);
+
+  
+
+  useEffect(() => {
+    if (!datasetId || !columnData){
+      return;
+    }
+    setColumnNumber()
+  }, [datasetId, columnData])
 
   useEffect(() => {
     if (dataFrame == null) return;

@@ -79,14 +79,24 @@ namespace DataVizApp.Services
         public async Task<List<DatasetColumn>> GetColumnsByDatasetIdAsync(int datasetId)
         {
             return await _appDbContext.DatasetColumns
+                .AsNoTracking()
                 .Where(c => c.DatasetId == datasetId)
                 .ToListAsync();
         }
 
-        public async Task<bool> SetColumnsAsync(int datasetId, List<DatasetColumn> columns)
+        public async Task<bool> SetColumnsAsync(int datasetId, List<DatasetColumnDto> columnDtos)
         {
-            // Ensure DatasetId is set for all new columns
-            columns.ForEach(c => c.DatasetId = datasetId);
+
+            List<DatasetColumn> columns = [.. columnDtos
+            .Select(dto => new DatasetColumn
+            {
+                DatasetId = datasetId,
+                ColumnNumber = dto.ColumnNumber,
+                ColumnName = dto.ColumnName,
+                ColumnDescription = dto.ColumnDescription,
+                DataType = dto.DataType,
+                Relationship = dto.Relationship
+            })];
 
             // Ensure order follows 0..*
             columns.Sort((a, b) => a.ColumnNumber.CompareTo(b.ColumnNumber));
@@ -96,66 +106,60 @@ namespace DataVizApp.Services
                     throw new ArgumentException("Column numbers must start at 0 and increment by 1 with no gaps.");
             }
 
-            // Remove existing columns without fetching into memory
-            var existingColumns = _appDbContext.DatasetColumns
-                .Where(c => c.DatasetId == datasetId);
-            _appDbContext.DatasetColumns.RemoveRange(existingColumns);
+            // Remove existing columns in the database first to avoid unique constraint conflicts
+            await _appDbContext.DatasetColumns
+                .Where(c => c.DatasetId == datasetId)
+                .ExecuteDeleteAsync();
+
+            // Clear tracked entities to avoid duplicate tracking errors when re-adding
+            _appDbContext.ChangeTracker.Clear();
 
             // Add all new columns in one go
             await _appDbContext.DatasetColumns.AddRangeAsync(columns);
 
-            // Save all changes in one trip
+            // Persist
             await _appDbContext.SaveChangesAsync();
             return true;
         }
 
         // Cosmos DatasetRecord Methods
 
-        public async Task<List<DatasetRecord>> GetRecordsByDatasetIdAsync(int datasetId, int start, int end)
+        public async Task<List<DataRecord>> GetColumnDataByIdAsync(int datasetId, int columnNumber)
         {
-            return await _cosmosDbContext.DatasetRecords
-                .Where(r => r.DatasetId == datasetId && r.RecordNumber >= start && r.RecordNumber <= end)
+            return await _cosmosDbContext.DataRecords
+                .Where(r => r.DatasetId == datasetId && r.ColumnNumber == columnNumber)
                 .ToListAsync();
         }
 
         public async Task<List<DatasetColumn>> GetColumnByDatasetIdAsync(int datasetId)
         {
             return await _appDbContext.DatasetColumns
+                .AsNoTracking()
                 .Where(c => c.DatasetId == datasetId)
                 .ToListAsync();
         }
 
-        public async Task<bool> SetRecordsAsync(int datasetId, List<DatasetRecordDto> recordDtos)
+
+        public async Task<bool> SetColumnDataAsync(int datasetId, int columnNumber, List<DataRecordDto> recordDtos)
         {
-            if (recordDtos.Count > 200)
-                throw new ArgumentException("Please batch your records into smaller sets of 200 or less.");
 
-            // convert to DatasetRecord
-            List<DatasetRecord> newRecords = [.. recordDtos
-                .Select(e => new DatasetRecord
-                {
-                    RecordNumber = e.RecordNumber,
-                    Values = e.Values,
-                    DatasetId = datasetId
-                })];
+            // Map each DataRecordDto to a Record object
+            List<DataRecord> newRecords = [.. recordDtos.Select(e => new DataRecord
+            {
+                Id = $"{datasetId}-{columnNumber}-{e.RecordNumber}",
+                DatasetId = datasetId,
+                ColumnNumber = columnNumber,
+                RecordNumber = e.RecordNumber,
+                Value = e.Value
+            })];
 
-            // Ensure DatasetId is set for all new records
-            newRecords.ForEach(r => r.DatasetId = datasetId);
+            var existingRecords = await _cosmosDbContext.DataRecords
+                .Where(r => r.DatasetId == datasetId && r.ColumnNumber == columnNumber)
+                .ToListAsync();
 
-            // Remove existing records without fetching them into memory
-            var existingRecords = _cosmosDbContext.DatasetRecords
-                .Where(r => r.DatasetId == datasetId);
-            _cosmosDbContext.DatasetRecords.RemoveRange(existingRecords);
+            _cosmosDbContext.DataRecords.RemoveRange(existingRecords);
 
-            return await AddRecordsAsync(newRecords);
-        }
-
-        public async Task<bool> AddRecordsAsync(List<DatasetRecord> records)
-        {
-            if (records.Count > 200)
-                throw new ArgumentException("Please batch your records into smaller sets of 200 or less.");
-            // Ensure 
-            await _cosmosDbContext.DatasetRecords.AddRangeAsync(records);
+            await _cosmosDbContext.DataRecords.AddRangeAsync(newRecords);
             await _cosmosDbContext.SaveChangesAsync();
             return true;
         }

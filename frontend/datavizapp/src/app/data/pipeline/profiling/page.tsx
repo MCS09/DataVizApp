@@ -1,9 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { CarouselItem, ColumnProfile } from "./components/Carousel";
-import { fetchData } from "@/lib/api";
-import { useColumns } from "@/lib/hooks/useColumns";
+import { fetchData, postData, safeJsonParse } from "@/lib/api";
+import { useColumns, Column } from "@/lib/hooks/useColumns";
 import useStore from "@/lib/store";
+import { AIResponse } from "../layout";
+import Button from "@/app/components/input/Button";
+import { useRouter } from "next/navigation";
 
 // Get Column Profile
 const getColumnProfile = async (datasetId: number) =>
@@ -17,45 +20,77 @@ const getColumnProfile = async (datasetId: number) =>
     }
   );
 
+type ColumnsDto = {
+  datasetId: number;
+  newColumns: ColumnProfile[];
+};
+
+const saveColumns = async (body: ColumnsDto) =>
+  await postData(
+    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumns`,
+    body
+  );
+
 export default function ProfilingPage() {
-  const [datasetId] = useState<number | undefined>(9);
+  const [datasetId, setDatasetId] = useState<number | undefined>();
   const { columns, setColumns } = useColumns([]);
   const { sharedState, updateState } = useStore();
+  const router = useRouter();
 
+  // load datasetId (From session store)
   useEffect(() => {
-    const fetchData = async () => {
-      if (datasetId) {
-        const cols = await getColumnProfile(datasetId);
-        setColumns(cols);
-        updateState({ aiContext: JSON.stringify(cols)});
-      }
-      // save datasetId to 
-    };
-    fetchData();
-  }, [datasetId]);
+    const stored = sessionStorage.getItem("sessionFileData");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setDatasetId(parsed.datasetId);
+    }
+  }, []);
 
   const updateColumn = (index: number, updatedColumn: ColumnProfile) => {
     const newColumns = [...columns];
-    newColumns[index] = updatedColumn;
-    const sorted = newColumns.sort((a, b) => a.columnNumber - b.columnNumber);
+    newColumns[index].columnProfile = updatedColumn;
+    const sorted = newColumns.sort(
+      (a, b) => a.columnProfile.columnNumber - b.columnProfile.columnNumber
+    );
 
     setColumns(sorted);
-    updateState({ aiContext: JSON.stringify(sorted)});
+    updateState({ aiContext: JSON.stringify(sorted) });
   };
 
+  // Update column schema
   useEffect(() => {
-    if (sharedState.aiResponseContext){
-      const newColumns = JSON.parse(sharedState.aiResponseContext);
-      try{
-        setColumns(newColumns.updatedData);
+    const fetchColumns = async () => {
+      if (datasetId) {
+        const colsProfiles = await getColumnProfile(datasetId);
+        const cols: Column[] = colsProfiles.map((curr) => ({
+          columnHeader: curr.columnName,
+          columnProfile: curr,
+        }));
+        return cols;
       }
-      catch{
-        console.warn("Failed to update Columns")
+      // save datasetId to
+    };
+
+    const getColumnsAI = () => {
+      if (sharedState.aiResponseContext) {
+        const aiResponse = safeJsonParse<AIResponse<string>>(
+          sharedState.aiResponseContext
+        );
+        if (!aiResponse) return;
+        const columns = safeJsonParse<Column[]>(aiResponse.updatedData);
+        if (columns) return columns;
       }
-      // reset
-      updateState({aiResponseContext: ''})
-    }
-  }, [sharedState])
+    };
+
+    const loadColumns = async () => {
+      const columns = getColumnsAI() ?? (await fetchColumns());
+      if (columns) {
+        setColumns(columns);
+        updateState({ aiContext: JSON.stringify(columns) });
+      }
+    };
+    loadColumns();
+  }, [sharedState.aiResponseContext, datasetId]);
 
   return (
     <div style={{ overflowX: "auto" }}>
@@ -64,12 +99,32 @@ export default function ProfilingPage() {
           {columns.map((column, index) => (
             <CarouselItem
               key={index}
-              column={column}
-              updateColumn={(updatedColumn) => updateColumn(index, updatedColumn)}
+              columnHeader={column.columnHeader}
+              columnProfile={column.columnProfile}
+              updateColumn={(updatedColumn) =>
+                updateColumn(index, updatedColumn)
+              }
             />
           ))}
         </div>
       )}
+      <Button
+        label={"Next"}
+        action={async () => {
+          // save the columns to server
+          const res = await saveColumns({
+            datasetId: datasetId!,
+            newColumns: columns.map((e) => ({
+              columnNumber: e.columnProfile.columnNumber,
+              columnName: e.columnProfile.columnName,
+              columnDescription: e.columnProfile.columnDescription,
+              dataType: e.columnProfile.dataType,
+              relationship: e.columnProfile.relationship,
+            })),
+          });
+          if (res) router.push("/data/pipeline/cleaning");
+        }}
+      />
     </div>
   );
 }

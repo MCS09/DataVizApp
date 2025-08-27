@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DefaultChatTransport } from 'ai';
 import { useChat } from '@ai-sdk/react';
 import ReactMarkdown from "react-markdown";
+import Button from "./components/input/Button";
 
 export default function Page() {
   const [input, setInput] = useState("");
@@ -62,9 +63,7 @@ export default function Page() {
           placeholder="Type your message..."
           className="flex-1 border rounded-lg p-2"
         />
-        <button type="submit" className="bg-blue-500 text-white px-4 rounded-lg">
-          Send
-        </button>
+        <Button label="Send" type="submit"/>
       </form>
     </div>
   );

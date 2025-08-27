@@ -7,13 +7,13 @@ import GoogleDrivePicker, {
 import { ROUTES } from "@/constants/routes";
 import { fetchData } from "@/lib/api";
 import { useSession } from "next-auth/react";
-import { ColumnProfile } from "../pipeline/profiling/components/Carousel";
 import { Dataset } from "@/lib/dataset";
-import { useLoadDataFrame } from "@/lib/hooks/cleaningHooks";
+import { ColumnData, DataFrame, mapDataFrameToColumnData, useLoadDataFrame } from "@/lib/hooks/cleaningHooks";
+import { ColumnProfile } from "../pipeline/profiling/components/Carousel";
 
 // Create Dataset object in DB
-const createDataset = async (userEmail: string, columns: ColumnProfile[]) =>
-  await fetchData<Dataset>(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset`, {
+const createDataset = async (userEmail: string, columns: ColumnProfile[], dataFrame: DataFrame) => {
+  const dataset = await fetchData<Dataset>(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -24,13 +24,31 @@ const createDataset = async (userEmail: string, columns: ColumnProfile[]) =>
     }),
   });
 
+  const columnDataArr = mapDataFrameToColumnData(dataset.datasetId.toString(), dataFrame);
+
+  (async (columnDataArr: ColumnData[]) => {
+
+    for (const columnData of columnDataArr) {
+      await fetchData(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumnData`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(columnData),
+      })
+    }
+  })(columnDataArr);
+
+  return dataset.datasetId;
+}
+
 export default function DatasetSelectionPage() {
   const { data: session } = useSession();
   const router = useRouter();
-  const { dataFrame, fileData, setFileData } = useLoadDataFrame();
   const [metadata, setMetadata] = useState<GoogleDriveFileMetadata | null>(
     null
   );
+  const {dataFrame, setFileData, columns} = useLoadDataFrame();
 
   const handleFilePicked = useCallback(
     async (newAccessToken: string, newMetadata: GoogleDriveFileMetadata) => {
@@ -45,21 +63,15 @@ export default function DatasetSelectionPage() {
 
   const handleConfirm = async () => {
     const email = session?.user?.email ?? "";
-    if (!metadata || !fileData || !dataFrame || dataFrame.length === 0 || !email) {
+    if (!metadata || !dataFrame || dataFrame.length === 0 || !email || !columns) {
       return;
     }
 
-    const columns = Object.keys(dataFrame[0]).map((key, index) => ({
-      columnName: key,
-      columnDescription: "",
-      dataType: "",
-      columnNumber: index,
-    }));
-
-    const dataset = await createDataset(email, columns);
+    const datasetId = await createDataset(email, columns, dataFrame);
+    
     sessionStorage.setItem(
-      "datasetId",
-      JSON.stringify({ datasetId: dataset.datasetId })
+      "sessionFileData",
+      JSON.stringify({ datasetId: datasetId })
     );
 
     router.push(ROUTES.datasetProfilingPage);

@@ -1,8 +1,12 @@
-import { ColumnProfile } from "@/app/data/pipeline/profiling/components/Carousel";
+import { ColumnProfile } from "@/app/data/pipeline/profiling/components/CarouselItem";
 import { useState } from "react";
 
-export function useColumns(initial: ColumnProfile[]){
-    const [columns, setColumns] = useState<ColumnProfile[]>(initial);
+export type Column = {
+    columnHeader: string,
+    columnProfile: ColumnProfile
+}
 
+export function useColumns(initial: Column[]){
+    const [columns, setColumns] = useState<Column[]>(initial);
     return {columns, setColumns}
 }

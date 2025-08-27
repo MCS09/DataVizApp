@@ -1,12 +1,45 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePyodide } from "./usePyodide";
 import { FileData } from "../dataset";
+import { safeJsonParse } from "../api";
+import { ColumnProfile } from "@/app/data/pipeline/profiling/components/Carousel";
+import { json } from "stream/consumers";
 
-type DataFrame = DataCell[];
-type DataCell = {
+export type DataFrame = DataCell[];
+export type DataCell = {
   recordNumber: number,
   columnNumber: number,
   data: string
+}
+
+export type ColumnData = {
+  datasetId: string;
+  columnNumber: number;
+  dataRecords: {
+    recordNumber: number;
+    value: string;
+  }[];
+};
+
+export function mapDataFrameToColumnData(datasetId: string, dataFrame: DataFrame): ColumnData[] {
+  const grouped: { [key: number]: ColumnData } = {};
+
+  dataFrame.forEach(cell => {
+    if (!grouped[cell.columnNumber]) {
+      grouped[cell.columnNumber] = {
+        datasetId,
+        columnNumber: cell.columnNumber,
+        dataRecords: []
+      };
+    }
+
+    grouped[cell.columnNumber].dataRecords.push({
+      recordNumber: cell.recordNumber,
+      value: String(cell.data ?? "")
+    });
+  });
+
+  return Object.values(grouped);
 }
 
 export function usePyFunctions() {
@@ -50,6 +83,7 @@ export function usePyFunctions() {
 export function useLoadDataFrame() {
   const [fileData, setFileData] = useState<FileData | null>(null);
   const [dataFrame, setDataFrame] = useState<DataFrame | null>(null);
+  const [columns, setColunns] = useState<ColumnProfile[]|undefined>();
 
   const { isReady, executeEmbeddedCode, loading, error } = usePyFunctions();
 
@@ -71,24 +105,57 @@ export function useLoadDataFrame() {
         const result = await executeEmbeddedCode(
           `
           df = pd.read_csv(embedded_input)
-          # Ensure recordNumber column is created from the index
-          df = df.reset_index().rename(columns={df.index.name or "index": "recordNumber"})
 
           # Melt into cell-oriented format
-          cell_df = df.melt(id_vars=["recordNumber"], var_name="columnNumber", value_name="data")
+          cell_df = df.reset_index().rename(columns={df.index.name or "index": "recordNumber"})
+          cell_df = cell_df.melt(id_vars=["recordNumber"], var_name="columnName", value_name="data")
 
-          # Optional: turn columnNumber into numeric indices (0..N-1)
-          col_map = {name: i for i, name in enumerate(df.columns) if name != "recordNumber"}
-          cell_df["columnNumber"] = cell_df["columnNumber"].map(col_map)
+          # Map column names → indices
+          col_map = {name: i for i, name in enumerate(df.columns)}
+          cell_df["columnNumber"] = cell_df["columnName"].map(col_map)
 
-          # Convert to JSON array of cells
-          output_json = cell_df.to_json(orient="records")
+          # Function to infer actual Python type name
+          def infer_python_type(series: pd.Series) -> str:
+              # drop nulls to avoid errors
+              non_null = series.dropna()
+              if non_null.empty:
+                  return "NoneType"
+              sample = non_null.iloc[0]
+              return type(sample).__name__   # e.g. 'int', 'float', 'str', 'bool', 'Timestamp'
+
+          # Build headers with python type
+          headers = [
+              {
+                  "columnNumber": i,
+                  "columnName": name,
+                  "columnDescription": "",
+                  "dataType": infer_python_type(df[name]),
+                  "relationship": ""
+              }
+              for i, name in enumerate(df.columns)
+          ]
+
+          # Ensure all data is string for output
+          cell_df["data"] = cell_df["data"].astype(str)
+
+          output = {
+              "headers": headers,
+              "data": cell_df[["recordNumber", "columnNumber", "data"]].to_dict(orient="records")
+          }
+
+          import json
+          output_json = json.dumps(output)
           `,
           fileContent
         );
 
-        setDataFrame(JSON.parse(result));
-        sessionStorage.setItem("fileCred", JSON.stringify(fileData));
+        const jsonResult = safeJsonParse<{headers: ColumnProfile[], data: DataFrame}>(result);
+
+        if (!jsonResult) throw new Error("Error loading dataframe");
+
+        setDataFrame(jsonResult.data);
+        setColunns(jsonResult.headers);
+        
       } catch (err) {
         console.error("Failed to load dataframe:", err);
       }
@@ -97,5 +164,5 @@ export function useLoadDataFrame() {
     load();
   }, [isReady, fileData, executeEmbeddedCode]);
 
-  return { dataFrame, fileData, loading, error, setFileData };
+  return { columns, dataFrame, fileData, loading, error, setFileData };
 }

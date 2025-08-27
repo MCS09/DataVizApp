@@ -5,37 +5,64 @@ const selectionFields: { [key: string]: string[] } = {
 };
 
 export default function Fieldset({
+  columnHeader,
   column,
   updateColumn,
 }: {
+  columnHeader: string;
   column: ColumnProfile;
   updateColumn: (updatedColumn: ColumnProfile) => void;
 }) {
   return (
     <fieldset className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4">
-      <legend className="fieldset-legend">Column Details</legend>
+      <legend className="fieldset-legend">{columnHeader}</legend>
       {[
-        { fieldName: "Column Name", key: "columnName", value: column.columnName },
-        { fieldName: "Column Description", key: "columnDescription", value: column.columnDescription },
+        {
+          fieldName: "Column Name",
+          key: "columnName",
+          value: column.columnName,
+        },
+        {
+          fieldName: "Column Description",
+          key: "columnDescription",
+          value: column.columnDescription,
+        },
         { fieldName: "Data Type", key: "dataType", value: column.dataType },
-        { fieldName: "Column Number", key: "columnNumber", value: column.columnNumber.toString() },
+        {
+          fieldName: "Column Number",
+          key: "columnNumber",
+          value: column.columnNumber.toString(),
+        },
+        {
+          fieldName: "Describe relationship with other columns",
+          key: "relationship",
+          value: column.relationship,
+        },
       ].map(({ fieldName, key, value }) => (
         <div key={key} className="mb-2">
           <label className="label">{fieldName}</label>
           {selectionFields[fieldName] ? (
-            <select
-              className="select select-bordered w-full"
-              value={value || ""}
-              onChange={(e) =>
-                updateColumn({ ...column, [key]: e.target.value })
-              }
-            >
-              {selectionFields[fieldName].map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
+            (() => {
+              const options =
+                value && !selectionFields[fieldName].includes(value)
+                  ? [...selectionFields[fieldName], value]
+                  : selectionFields[fieldName];
+              return (
+                <select
+                  className="select select-bordered w-full"
+                  value={value || ""}
+                  onChange={(e) =>
+                    updateColumn({ ...column, [key]: e.target.value })
+                  }
+                >
+                  {options.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              );
+            })()
           ) : (
             <input
               type="text"
