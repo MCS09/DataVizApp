@@ -227,7 +227,7 @@ export default function DataPagesLayout({
           {!sentPrompt && 
           <Button
             label="Send"
-            className="btn btn-primary w-2/12"
+            className="btn w-2/12"
             action={async () => {
               if (prompt.trim()) {
                 setSentPrompt(prompt);

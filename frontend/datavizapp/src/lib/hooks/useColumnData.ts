@@ -9,7 +9,7 @@ type GetColumnDataRequestDto =
 }
 
 const getColumnData = async (getColumnDataRequestDto: GetColumnDataRequestDto) =>
-    await fetchData<ColumnData>(`http://localhost:5001/api/Dataset/getColumnData`, {
+    await fetchData<ColumnData>(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnData`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

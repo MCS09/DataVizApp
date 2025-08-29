@@ -2,15 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { usePyodide } from "./usePyodide";
 import { FileData } from "../dataset";
 import { safeJsonParse } from "../api";
-import { ColumnProfile } from "@/app/data/pipeline/profiling/components/Carousel";
-import { json } from "stream/consumers";
+import { ColumnProfile } from "@/app/data/pipeline/profiling/components/CarouselItem";
 
+// Like xlsx [{DataCell}] and each data cell
 export type DataFrame = DataCell[];
 export type DataCell = {
   recordNumber: number,
   columnNumber: number,
   data: string
 }
+
 
 export type ColumnData = {
   datasetId: string;

@@ -1,4 +1,4 @@
-import { ColumnProfile } from "@/app/data/pipeline/profiling/components/Carousel";
+import { ColumnProfile } from "@/app/data/pipeline/profiling/components/CarouselItem";
 
 const selectionFields: { [key: string]: string[] } = {
   "Data Type": ["none", "int", "decimal", "text"],

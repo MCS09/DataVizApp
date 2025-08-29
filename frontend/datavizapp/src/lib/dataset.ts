@@ -1,7 +1,11 @@
+export type UserDatasetsDto = {
+  datasets: Dataset[];
+}
 
 export type Dataset = {
   datasetId: number;
   userId: string;
+  datasetName: string;
 };
 
 export type FileData = {
