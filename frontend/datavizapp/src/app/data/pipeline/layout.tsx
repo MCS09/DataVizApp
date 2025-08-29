@@ -142,11 +142,30 @@ export default function DataPagesLayout({
       try {
         const history = await getChatHistory(threadId);
         if (history.length != 0) {
+          // Process the raw history to create a clean, displayable format
           setChatHistory(
-            history.map((item) => ({
-              message: item.text,
-              isStart: item.role.toLowerCase() == "assistant", // Adjust based on ChatBubbleParam type
-            }))
+            history.map((item) => {
+              const role = item.role.toLowerCase();
+              let messageText = item.text; // Default to raw text as a fallback
+
+              if (role === "assistant") {
+                const aiResponse = safeJsonParse<AIResponse<string>>(item.text);
+                if (aiResponse && aiResponse.textResponse) {
+                  messageText = aiResponse.textResponse;
+                }
+              } else if (role === "user") {
+                // Also parse the user's message to extract the simple prompt
+                const userPrompt = safeJsonParse<UserPrompt>(item.text);
+                if (userPrompt && userPrompt.prompt) {
+                  messageText = userPrompt.prompt;
+                }
+              }
+
+              return {
+                message: messageText,
+                isStart: role === "assistant",
+              };
+            })
           );
           const last = history[history.length - 1];
           if(last && last.role == "assistant" && last.text){ // redundant but safe check
