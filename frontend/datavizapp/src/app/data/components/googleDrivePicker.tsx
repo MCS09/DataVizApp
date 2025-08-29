@@ -89,12 +89,18 @@ export default function GoogleDrivePicker({
   };
 
   return (
-    <div>
-      <Button
-      label="Open Drive Picker"
-        action={handleOpenPicker}
+    <div className="text-center">
+      <button
+        onClick={handleOpenPicker}
         disabled={!isLibraryLoaded}
-      />
+        className={`px-6 py-3 rounded-xl font-semibold transition-colors ${
+          isLibraryLoaded
+            ? "bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+            : "bg-slate-300 text-slate-500 cursor-not-allowed"
+        }`}
+      >
+        Connect Google Drive
+      </button>
 
       {isPickerVisible && (
         <drive-picker
