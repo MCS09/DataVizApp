@@ -46,7 +46,11 @@ namespace DataVizApp.Controllers
 
             await _datasetService.CreateDatasetAsync(newDataset);
             await _datasetService.SetColumnsAsync(newDataset.DatasetId, [.. columns]);
-            return CreatedAtAction(nameof(GetDataset), newDataset);
+            return CreatedAtAction(
+                nameof(GetDataset),
+                new { datasetId = newDataset.DatasetId }, // route values
+                newDataset // response body
+            );
         }
 
         public record ColumnDataDto(int DatasetId, int ColumnNumber, List<DataRecordDto> DataRecords);
