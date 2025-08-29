@@ -12,7 +12,7 @@ export default function Button({
   label,
   action,
   type="button",
-  className = "btn btn-primary",
+  className = "btn",
   disabled=false
 }: ButtonProps) {
 

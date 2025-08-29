@@ -8,36 +8,54 @@ import { ROUTES } from "@/constants/routes";
 import { fetchData } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { Dataset, UserDatasetsDto } from "@/lib/dataset";
-import { ColumnData, DataFrame, mapDataFrameToColumnData, useLoadDataFrame } from "@/lib/hooks/cleaningHooks";
-import { ColumnProfile } from "../pipeline/profiling/components/Carousel";
+import {
+  DataFrame,
+  mapDataFrameToColumnData,
+  useLoadDataFrame,
+} from "@/lib/hooks/cleaningHooks";
+import { ColumnProfile } from "../pipeline/profiling/components/CarouselItem";
 
 // Create Dataset object in DB
-const createDataset = async (userEmail: string, columns: ColumnProfile[], dataFrame: DataFrame) => {
-  const dataset = await fetchData<Dataset>(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      userId: userEmail,
-      columns: columns,
-    }),
-  });
-
-  const columnDataArr = mapDataFrameToColumnData(dataset.datasetId.toString(), dataFrame);
-
-  (async (columnDataArr: ColumnData[]) => {
-
-    for (const columnData of columnDataArr) {
-      await fetchData(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumnData`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(columnData),
-      })
+const createDataset = async (
+  userEmail: string,
+  columns: ColumnProfile[],
+  dataFrame: DataFrame,
+  datasetName: string
+) => {
+  const dataset = await fetchData<Dataset>(
+    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        userId: userEmail,
+        columns: columns,
+        datasetName: datasetName
+      }),
     }
-  })(columnDataArr);
+  );
+
+  const columnDataArr = mapDataFrameToColumnData(
+    dataset.datasetId.toString(),
+    dataFrame
+  );
+
+  await Promise.all(
+    columnDataArr.map((columnData) =>
+      fetchData(
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumnData`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(columnData),
+        }
+      )
+    )
+  );
 
   return dataset.datasetId;
 }
@@ -156,11 +174,18 @@ export default function DatasetSelectionPage() {
   );
 
   const handleConfirm = async () => {
-    if (!metadata || !dataFrame || dataFrame.length === 0 || !email || !columns) {
+    const email = session?.user?.email ?? "";
+    if (
+      !metadata ||
+      !dataFrame ||
+      dataFrame.length === 0 ||
+      !email ||
+      !columns
+    ) {
       return;
     }
 
-    const datasetId = await createDataset(email, columns, dataFrame);
+    const datasetId = await createDataset(email, columns, dataFrame, "No Name");
 
     sessionStorage.setItem(
       "sessionFileData",

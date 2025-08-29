@@ -12,7 +12,7 @@ interface LoginButtonProps {
 function LoginButton({ provider, redirectTo, label, icon }: LoginButtonProps) {
   return (
     <button
-      className="btn btn-outline w-full flex items-center justify-center gap-2"
+      className="btn w-full flex items-center justify-center gap-2"
       onClick={() => signIn(provider, { callbackUrl: redirectTo })}
     >
       {icon}
