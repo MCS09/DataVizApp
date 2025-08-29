@@ -15,4 +15,8 @@ public partial class Dataset
 
     [Column("user_id")]
     public required string UserId { get; set; }
+
+    [Column("dataset_name")]
+    [MaxLength(50)]
+    public required string DatasetName { get; set; }
 }
