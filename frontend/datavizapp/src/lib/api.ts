@@ -4,6 +4,11 @@ export async function fetchData<T>(
 ): Promise<T> {
   const res = await fetch(url, options);
 
+  if (res.status === 204) {
+    return undefined as T;
+  }
+
+
   if (!res.ok) {
     throw new Error(`Failed to fetch data: ${res.status} ${res.statusText}`);
   }

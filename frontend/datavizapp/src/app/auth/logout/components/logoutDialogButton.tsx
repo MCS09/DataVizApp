@@ -7,7 +7,7 @@ export default function LogoutDialogButton() {
 
   return (
     <>
-      <button className="btn btn-secondary" onClick={() => setOpen(true)}>
+      <button className="btn" onClick={() => setOpen(true)}>
         Logout
       </button>
       {open && (
@@ -17,7 +17,7 @@ export default function LogoutDialogButton() {
             <p className="mb-6">Are you sure you want to log out?</p>
             <div className="flex justify-end gap-2">
               <button
-                className="btn btn-ghost"
+                className="btn"
                 onClick={() => setOpen(false)}
               >
                 Cancel

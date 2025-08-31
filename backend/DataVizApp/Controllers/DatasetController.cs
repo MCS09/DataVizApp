@@ -19,13 +19,12 @@ namespace DataVizApp.Controllers
             return Ok(dataset);
         }
 
-
         [HttpGet("userDatasets/{userId}")]
         public async Task<ActionResult<List<Dataset>>> GetDatasetsByUserId(string userId)
         {
-            var dataset = await _datasetService.GetDatasetByUserIdAsync(userId);
-            if (dataset == null) return NotFound();
-            return Ok(dataset);
+            var datasets = await _datasetService.GetDatasetByUserIdAsync(userId);
+            if (datasets == null || datasets.Count == 0) return NotFound();
+            return Ok(new { datasets });
         }
 
         [HttpPost]
@@ -33,7 +32,8 @@ namespace DataVizApp.Controllers
         {
             Dataset newDataset = new()
             {
-                UserId = datasetDto.UserId
+                UserId = datasetDto.UserId,
+                DatasetName = datasetDto.DatasetName
             };
 
             DatasetColumnDto[] columns = [.. datasetDto.Columns.Select((col) => new DatasetColumnDto
@@ -46,7 +46,11 @@ namespace DataVizApp.Controllers
 
             await _datasetService.CreateDatasetAsync(newDataset);
             await _datasetService.SetColumnsAsync(newDataset.DatasetId, [.. columns]);
-            return CreatedAtAction(nameof(GetDataset), new { datasetId = newDataset.DatasetId }, newDataset);
+            return CreatedAtAction(
+                nameof(GetDataset),
+                new { datasetId = newDataset.DatasetId }, // route values
+                newDataset // response body
+            );
         }
 
         public record ColumnDataDto(int DatasetId, int ColumnNumber, List<DataRecordDto> DataRecords);

@@ -19,35 +19,36 @@ export default function CleaningPage() {
     if (stored) {
       const parsed = JSON.parse(stored);
       setDatasetId(parsed.datasetId);
+      setColumnNumber(0);
     }
   }, []);
 
-  
+
 
   useEffect(() => {
     if (!datasetId || !columnData){
       return;
     }
-    setColumnNumber()
   }, [datasetId, columnData])
 
-  useEffect(() => {
-    if (dataFrame == null) return;
+  // useEffect(() => {
+  //   if (dataFrame == null) return;
 
-    const columnDefs =
-      dataFrame.length > 0
-      ? Object.keys(dataFrame[0]).map((key) => ({ field: key, editable: true }))
-      : [];
+  //   const columnDefs =
+  //     dataFrame.length > 0
+  //     ? Object.keys(dataFrame[0]).map((key) => ({ field: key, editable: true }))
+  //     : [];
 
-    setColumnDefs(columnDefs);
+  //   setColumnDefs(columnDefs);
 
     
-  }, [dataFrame])
+  // }, [dataFrame])
 
   return (
-    <div className="ag-theme-alpine " style={{ height: "600px"}}>
-      <AgGridReact rowData={dataFrame} columnDefs={columnDefs} singleClickEdit={true} />
-    </div>
+    <div></div>
+    // <div className="ag-theme-alpine " style={{ height: "600px"}}>
+    //   <AgGridReact rowData={dataFrame} columnDefs={columnDefs} singleClickEdit={true} />
+    // </div>
 
   );
 }

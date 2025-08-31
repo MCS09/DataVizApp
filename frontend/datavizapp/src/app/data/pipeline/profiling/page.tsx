@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { CarouselItem, ColumnProfile } from "./components/Carousel";
+import { CarouselItem, ColumnProfile } from "./components/CarouselItem";
 import { fetchData, postData, safeJsonParse } from "@/lib/api";
 import { useColumns, Column } from "@/lib/hooks/useColumns";
 import useStore from "@/lib/store";
