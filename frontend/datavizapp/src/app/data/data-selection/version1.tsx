@@ -9,7 +9,7 @@ import { fetchData } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { Dataset } from "@/lib/dataset";
 import { ColumnData, DataFrame, mapDataFrameToColumnData, useLoadDataFrame } from "@/lib/hooks/cleaningHooks";
-import { ColumnProfile } from "../pipeline/profiling/components/Carousel";
+import { ColumnProfile } from "../pipeline/profiling/components/CarouselItem";
 
 // Create Dataset object in DB
 const createDataset = async (userEmail: string, columns: ColumnProfile[], dataFrame: DataFrame) => {

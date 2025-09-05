@@ -71,31 +71,6 @@ const getDatasetDetail = async (userId: string) =>
     }
   );
 
-// Normalize any common shapes -> Dataset[]
-// function toDatasetArray(payload: unknown): Dataset[] {
-//   if (Array.isArray(payload)) return payload as Dataset[];
-//   if (payload && typeof payload === "object") {
-//     const obj = payload as any;
-//     if (Array.isArray(obj.data)) return obj.data as Dataset[];
-//     if (Array.isArray(obj.value)) return obj.value as Dataset[];
-//     // fallback: single object
-//     return [obj as Dataset];
-//   }
-//   return [];
-// }
-
-// export async function loadLatestDataset(userId: string): Promise<Dataset | null> {
-//   const res = await getDatasetDetail(userId);
-//   const datasets = toDatasetArray(res);
-
-//   if (datasets.length === 0) return null;
-
-//   // coerce ids to numbers in case they're strings
-//   return datasets.reduce((max, ds) =>
-//     Number(ds.datasetId) > Number(max.datasetId) ? ds : max
-//   );
-// }
-
 export async function loadLatestDataset(userId: string): Promise<Dataset | null> {
   const res = await getDatasetDetail(userId); // res: UserDatasetsDto
 
@@ -114,11 +89,14 @@ export default function DatasetSelectionPage() {
   const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
   const [uploadSource, setUploadSource] = useState("local");
 
-  const [datasetId, setDatasetId] = useState<number | undefined>();
-  const [datasetName, setDatasetName] = useState<string | undefined>();
+  const [datasets, setDatasets] = useState<Dataset[]>([]);
+
+  const [loading, setLoading] = useState(false);
 
   const { data: session } = useSession();
   const [latest, setLatest] = useState<Dataset | null>(null);
+
+  const [datasetName, setDatasetName] = useState("");
 
   const email = session?.user?.email ?? "";
 
@@ -133,23 +111,7 @@ export default function DatasetSelectionPage() {
     if (!file) return;
 
     setFileName(file.name);
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const rows = text.trim().split("\n").map((row) => row.split(","));
-      setPreviewHeaders(rows[0]);
-      setPreviewData(rows.slice(1));
-      setShowPreview(true);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleFileUploadGoogleDrive = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setFileName(file.name);
+    setDatasetName(file.name.replace(/\.[^/.]+$/, "")); // auto-fill without extension
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -164,13 +126,24 @@ export default function DatasetSelectionPage() {
 
   const handleFilePicked = useCallback(
     async (newAccessToken: string, newMetadata: GoogleDriveFileMetadata) => {
-      setFileData({
-        id: newMetadata.id,
-        accessToken: newAccessToken,
-      });
+      setFileData({ id: newMetadata.id, accessToken: newAccessToken });
       setMetadata(newMetadata);
+
+      setFileName(newMetadata.name);
+      setDatasetName(newMetadata.name.replace(/\.[^/.]+$/, "")); // auto-fill without extension
+
+      // Fetch file contents
+      const res = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${newMetadata.id}?alt=media`,
+        { headers: { Authorization: `Bearer ${newAccessToken}` } }
+      );
+      const text = await res.text();
+      const rows = text.trim().split("\n").map((row) => row.split(","));
+      setPreviewHeaders(rows[0]);
+      setPreviewData(rows.slice(1));
+      setShowPreview(true);
     },
-    [setFileData, setMetadata]
+    [setFileData]
   );
 
   const handleConfirm = async () => {
@@ -185,25 +158,44 @@ export default function DatasetSelectionPage() {
       return;
     }
 
+    setLoading(true);
+
     const datasetId = await createDataset(email, columns, dataFrame, "No Name");
 
     sessionStorage.setItem(
       "sessionFileData",
-      JSON.stringify({ datasetId: datasetId })
+      JSON.stringify({ datasetId: datasetId})
     );
-
     router.push(ROUTES.datasetProfilingPage);
   };
 
-  useEffect(() => {
-    async function fetchLatest() {
-      console.log("Fetching latest dataset for email:", email);
-      const result = await loadLatestDataset(email);
-      setLatest(result);
-    }
-    fetchLatest();
-  }, [email]);
+  const handleUploadSourceChange = (source: "local" | "google") => {
+    setUploadSource(source);
+    setFileName("");
+    setDatasetName("");
+    setPreviewHeaders([]);
+    setPreviewData([]);
+    setShowPreview(false);
+    setMetadata(null);
+  };
 
+  // ---- Fetch datasets ---- //
+    useEffect(() => {
+      async function fetchDatasets() {
+        if (!email) return;
+        console.log("Fetching dataset for email:", email);
+        const result = await getDatasetDetail(email);
+        setDatasets(result.datasets || []);
+        const latest = result.datasets.reduce(
+          (max, ds) => (ds.datasetId > max.datasetId ? ds : max),
+          result.datasets[0]
+        );
+        setLatest(latest);
+      }
+      fetchDatasets();
+    }, [email]);
+
+  // ---- Render ---- //
   return (
     <div className="flex items-start gap-4">
       <div className="card rounded-xl p-8 flex-1">
@@ -221,7 +213,7 @@ export default function DatasetSelectionPage() {
                     ? "bg-purple-600 text-white"
                     : "bg-slate-200 text-slate-700"
                 }`}
-                onClick={() => setUploadSource("local")}
+                onClick={() => handleUploadSourceChange("local")}
               >
                 Local Upload
               </button>
@@ -232,7 +224,7 @@ export default function DatasetSelectionPage() {
                     ? "bg-green-600 text-white"
                     : "bg-slate-200 text-slate-700"
                 }`}
-                onClick={() => setUploadSource("google")}
+                onClick={() => handleUploadSourceChange("google")}
               >
                 Google Drive
               </button>
@@ -298,23 +290,12 @@ export default function DatasetSelectionPage() {
             
                   {/* Google Picker button */}
                   <GoogleDrivePicker handleFilePicked={handleFilePicked} />
-            
-                  {/* If file metadata is available, show card */}
+
                   {metadata && (
-                    <div className="card bg-base-100 w-96 shadow-sm mx-auto mt-6">
-                      <h2 className="card-title">{metadata.name}</h2>
-                      <div className="card-body">
-                        <p>Type: {metadata.mimeType}</p>
-                        <p>Size: {(metadata.sizeBytes / 1024).toFixed(2)} KB</p>
-                        <div className="card-actions justify-end">
-                          <button
-                            className="btn btn-primary"
-                            onClick={handleConfirm}
-                          >
-                            Confirm
-                          </button>
-                        </div>
-                      </div>
+                    <div className="mt-6 text-slate-600">
+                      <p>Selected: {metadata.name}</p>
+                      <p>Type: {metadata.mimeType}</p>
+                      <p>Size: {(metadata.sizeBytes / 1024).toFixed(2)} KB</p>
                     </div>
                   )}
                 </div>
@@ -354,24 +335,66 @@ export default function DatasetSelectionPage() {
                 className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl glow font-semibold"
                 onClick={handleConfirm}
               >
-                Continue to Clean
+                {loading ? "Loading..." : "Continue to Clean"}
               </button>
             </div>
           )}
         </div>
       </div>
-      <a
-      href="/pipeline/profiling"
-      className="flex items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 hover:border-purple-500 hover:bg-purple-50 transition p-6 text-center"
-      >
-      <div>
-        <div className="w-12 h-12 mx-auto mb-3 flex items-center justify-center rounded-full bg-purple-100 text-purple-600">
-          previous dataset
+
+      {/* Dataset History Section */}
+      <div className="mt-10">
+        <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset History</h2>
+
+        <div className="space-y-3">
+          {/* Latest Dataset */}
+          {latest && (
+            <button
+              onClick={handleConfirm}
+              className="w-full flex items-center gap-3 rounded-xl border border-purple-300 bg-purple-50 p-4 hover:bg-purple-100 transition text-left"
+            >
+              <div className="flex-1">
+                <p className="font-semibold text-purple-800">
+                  {latest.datasetName || "Untitled Dataset"}
+                </p>
+                <p className="text-sm text-slate-600">ID: {latest.datasetId}</p>
+              </div>
+              <span className="px-2 py-1 text-xs rounded-full bg-purple-200 text-purple-700">
+                Latest
+              </span>
+            </button>
+          )}
+
+          {/* Other Datasets */}
+          {datasets
+            .filter((d) => !latest || d.datasetId !== latest.datasetId)
+            .map((dataset) => (
+              <button
+                key={dataset.datasetId}
+                onClick={handleConfirm}
+                className="w-full flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 hover:bg-slate-50 transition text-left"
+              >
+                <div className="flex-1">
+                  <p className="font-medium text-slate-800">
+                    {dataset.datasetName || "Untitled Dataset"}
+                  </p>
+                  <p className="text-sm text-slate-600">ID: {dataset.datasetId}</p>
+                </div>
+              </button>
+            ))}
         </div>
-        <p className="font-medium text-slate-700">ID: {latest?.datasetId}</p>
-        <p className="font-medium text-slate-700">Name: {latest?.datasetName}</p>
       </div>
-      </a>
+
+
+      {/* Loading Overlay */}
+      {loading && (
+        <div className="fixed inset-0 bg-white/70 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin h-10 w-10 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+            <p className="mt-4 text-lg font-medium text-slate-700">Preparing profiling...</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
