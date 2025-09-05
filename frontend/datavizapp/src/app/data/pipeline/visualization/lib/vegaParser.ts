@@ -1,4 +1,4 @@
-import type { AIColumnsProfileContext } from "./sample_data";
+import type { AIColumnsProfileContext } from "../sample_data";
 
 const rowsFromColumns = (data: AIColumnsProfileContext) => {
   const rows: Record<string, string | number>[] = [];
