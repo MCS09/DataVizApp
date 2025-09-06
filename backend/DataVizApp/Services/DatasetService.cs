@@ -131,6 +131,14 @@ namespace DataVizApp.Services
                 .ToListAsync();
         }
 
+        public async Task<List<DataRecord>> GetColumnDataByIdAsync(int datasetId, int columnNumber, int count)
+        {
+            return await _cosmosDbContext.DataRecords
+                .Where(r => r.DatasetId == datasetId && r.ColumnNumber == columnNumber)
+                .Take(count)
+                .ToListAsync();
+        }
+
         public async Task<List<DatasetColumn>> GetColumnByDatasetIdAsync(int datasetId)
         {
             return await _appDbContext.DatasetColumns

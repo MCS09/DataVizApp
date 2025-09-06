@@ -73,6 +73,36 @@ namespace DataVizApp.Controllers
             return Ok(result);
             
         }
+
+        public record ColumnProfileDto(
+            int ColumnNumber,
+            string ColumnName,
+            List<ColumnProfileDataRecordDto> DataRecords
+        );
+
+        public record ColumnProfileDataRecordDto(
+            int RecordNumber,
+            string Value
+        );
+
+        [HttpPost("getSchema/{datasetId}")]
+        public async Task<IActionResult> GetDatasetSchema(int datasetId)
+        {
+            List<DatasetColumn> columns = await _datasetService.GetColumnByDatasetIdAsync(datasetId);
+            // Get first 5 rows of data for each column
+            List<ColumnProfileDto> profiles = [];
+            foreach (var column in columns)
+            {
+                List<DataRecord> samples = await _datasetService.GetColumnDataByIdAsync(datasetId, column.ColumnNumber, 5);
+                profiles.Add(new ColumnProfileDto(
+                    column.ColumnNumber,
+                    column.ColumnName,
+                    [.. samples.Select(r => new ColumnProfileDataRecordDto(r.RecordNumber, r.Value))]
+                ));
+            }
+
+            return Ok(new { profiles });
+        }
         
         [HttpPost("setColumnData")]
         public async Task<IActionResult> SetColumnData([FromBody] ColumnDataDto request)
@@ -88,6 +118,7 @@ namespace DataVizApp.Controllers
 
 
         public record DatasetColumnsRequest(int DatasetId, List<DatasetColumnDto> NewColumns);
+        
         [HttpPost("setColumns")]
         public async Task<IActionResult> SetColumns([FromBody] DatasetColumnsRequest request)
         {
@@ -137,7 +168,7 @@ namespace DataVizApp.Controllers
         }
 
         [HttpGet("getColumnsByDatasetId/{datasetId}")]
-        public async Task<IActionResult> GetColumnsByDatasetId(int datasetId)
+        public async Task<ActionResult<List<DatasetColumn>>> GetColumnsByDatasetId(int datasetId)
         {
             List<DatasetColumn> columns = await _datasetService.GetColumnByDatasetIdAsync(datasetId);
             if (columns == null || columns.Count == 0) return NotFound("No columns found for the specified dataset.");
