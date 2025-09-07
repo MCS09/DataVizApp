@@ -1,4 +1,4 @@
-import type { AIColumnsProfileContext } from "../sample_data";
+import type { AIColumnsProfileContext } from "../data";
 
 const rowsFromColumns = (data: AIColumnsProfileContext) => {
   const rows: Record<string, string | number>[] = [];
@@ -25,7 +25,11 @@ export const vegaSpecConverter = (data: AIColumnsProfileContext) => {
     encoding: {
       x: { field: "firstName", type: "ordinal", title: "First Name" },
       y: { field: "age", type: "quantitative", title: "Age" },
-      tooltip: [{ field: "firstName" }, { field: "surname" }, { field: "age", type: "quantitative" }],
+      tooltip: [
+        { field: "firstName" },
+        { field: "surname" },
+        { field: "age", type: "quantitative" },
+      ],
     },
   };
 };

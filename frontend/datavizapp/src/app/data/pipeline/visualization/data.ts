@@ -1,16 +1,16 @@
 export type AIColumnsProfileContext = {
-  datasetId: string;
   columnNumber: number;
   columnName: string;
-  dataRecords: {
+  dataRecords: { // sample only
     recordNumber: number;
     value: string;
   }[];
 }[]
 
+
+
 export const sampleAIColumnsProfileContext: AIColumnsProfileContext = [
   {
-    datasetId: "dataset-123",
     columnNumber: 0,
     columnName: "firstName",
     dataRecords: [
@@ -21,7 +21,6 @@ export const sampleAIColumnsProfileContext: AIColumnsProfileContext = [
     ],
   },
   {
-    datasetId: "dataset-123",
     columnNumber: 1,
     columnName: "surname",
     dataRecords: [
@@ -32,7 +31,6 @@ export const sampleAIColumnsProfileContext: AIColumnsProfileContext = [
     ],
   },
   {
-    datasetId: "dataset-123",
     columnNumber: 2,
     columnName: "age",
     dataRecords: [

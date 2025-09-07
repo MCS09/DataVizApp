@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { vegaSpecConverter } from "../lib/vegaParser";
-import { sampleAIColumnsProfileContext } from "../sample_data";
+import { sampleAIColumnsProfileContext } from "../data";
 import { toPlain } from "../lib/toPlain";
 
 type Args = {
@@ -14,6 +14,13 @@ type Args = {
 };
 
 export function useVegaSpec({ width, ratio, theme, maxWidth, maxHeight }: Args) {
+  const [aiColumnsProfileContext, setAIColumnsProfileContext] = useState(sampleAIColumnsProfileContext);
+  const [baseSpec, setBaseSpec] = useState(vegaSpecConverter(aiColumnsProfileContext));
+
+  useEffect(() => {
+    setBaseSpec(vegaSpecConverter(aiColumnsProfileContext));
+  }, [aiColumnsProfileContext]);
+
   const height = useMemo(() => {
     if (ratio === "original") return undefined;
     const [w, h] = ratio.split(":").map(Number);
@@ -24,7 +31,6 @@ export function useVegaSpec({ width, ratio, theme, maxWidth, maxHeight }: Args) 
   const clampedWidth = Math.min(width, maxWidth);
 
   const spec = useMemo(() => {
-    const baseSpec = vegaSpecConverter(sampleAIColumnsProfileContext);
     const colorField =
       baseSpec.encoding?.x?.field ||
       baseSpec.encoding?.y?.field ||
@@ -44,7 +50,7 @@ export function useVegaSpec({ width, ratio, theme, maxWidth, maxHeight }: Args) 
         },
       },
     };
-  }, [clampedWidth, height, theme]);
+  }, [baseSpec, clampedWidth, height, theme]);
 
-  return { spec, clampedWidth, height };
+  return { setBaseSpec, setAIColumnsProfileContext, baseSpec, spec, clampedWidth, height };
 }

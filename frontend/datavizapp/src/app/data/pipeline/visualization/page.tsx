@@ -1,14 +1,26 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import ChartControls from "./components/ChartControls";
 import ChartThemePicker from "./components/ChartThemePicker";
 import ChartBox from "./components/ChartBox";
 import ExportButtons from "./components/ExportButtons";
 import { useVegaSpec } from "./hooks/useVegaSpec";
 import { chartThemes } from "./lib/chartThemes";
+import { AIColumnsProfileContext } from "./data";
+import { fetchData, safeJsonParse } from "@/lib/api";
+import useStore from "@/lib/store";
+import { AIResponse } from "../layout";
+
+const getAIContext = async (datasetId: number) =>
+  await fetchData<{ "profiles" : AIColumnsProfileContext[]}>(
+    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getSchema/${datasetId}`
+  );
 
 export default function Page() {
+  const [datasetId, setDatasetId] = useState<number | undefined>();
+  const { sharedState, updateState } = useStore();
+
   // UI state
   const [width, setWidth] = useState(600);
   const [ratio, setRatio] = useState<"original" | "16:9" | "4:3" | "1:1">("16:9");
@@ -21,13 +33,59 @@ export default function Page() {
   const vegaRef = useRef<any | null>(null);
 
   // Build spec (width, ratio, theme → vega-lite spec)
-  const { spec, clampedWidth, height } = useVegaSpec({
+  const { setBaseSpec, setAIColumnsProfileContext, baseSpec, spec, clampedWidth, height } = useVegaSpec({
     width,
     ratio,
     theme,
     maxWidth: MAX_WIDTH,
     maxHeight: 500,
   });
+
+
+  // load datasetId (From session store)
+  useEffect(() => {
+    const stored = sessionStorage.getItem("sessionFileData");
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      setDatasetId(parsed.datasetId);
+    }
+  }, []);
+
+  type AIContext = {
+    profiles: AIColumnsProfileContext[];
+    currentSpec: typeof baseSpec;
+  }
+
+  // Load initial AI context from backend
+  // Set context to AI
+  useEffect(() => {
+    if (datasetId) {
+      getAIContext(datasetId).then((data) => {
+        if (data && data.profiles) {
+          const aiContext: AIContext = {
+            profiles: data.profiles,
+            currentSpec: baseSpec
+          }
+          updateState({ aiContext: JSON.stringify(aiContext) });
+        }
+      });
+    }
+  }, [datasetId, baseSpec]);
+
+  useEffect(() => {
+    // If we have a new AI response, update the base spec
+    if (sharedState.aiResponseContext) {
+      const aiResponse = safeJsonParse<AIResponse<string>>(
+        sharedState.aiResponseContext
+      );
+      if (!aiResponse) return;
+      const specs = safeJsonParse<typeof baseSpec>(aiResponse.updatedData);
+      if (!specs) return;
+      setBaseSpec(specs);
+    }
+  }, [sharedState.aiResponseContext]);
+
+
 
   return (
     <div className="w-full h-screen flex justify-center items-center bg-black">
