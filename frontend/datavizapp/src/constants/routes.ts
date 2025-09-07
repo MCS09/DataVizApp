@@ -5,13 +5,14 @@ export const ROUTES = {
   datasetCleaningPage: "/data/pipeline/cleaning",
   datasetVisualizationPage: "/data/pipeline/visualization",
   loginPage: "/auth/login",
+  dashboard: "/dashboard",
 };
 
 export const WORKFLOW_STAGES_NAMES_BY_ROUTE = {
   datasetCleaningPage: "CLEANING",
   datasetProfilingPage: "DATASET",
-  datasetVisualizationPage: 'VISUALIZATION'
-}
+  datasetVisualizationPage: 'VISUALIZATION',
+};
 
 export const AGENT_ENUM_BY_ROUTE = {
   datasetCleaningPage: 1,
