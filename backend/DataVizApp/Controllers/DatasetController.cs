@@ -85,7 +85,7 @@ namespace DataVizApp.Controllers
             string Value
         );
 
-        [HttpPost("getSchema/{datasetId}")]
+        [HttpGet("getSchema/{datasetId}")]
         public async Task<IActionResult> GetDatasetSchema(int datasetId)
         {
             List<DatasetColumn> columns = await _datasetService.GetColumnByDatasetIdAsync(datasetId);
