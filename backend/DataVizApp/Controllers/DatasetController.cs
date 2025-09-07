@@ -71,8 +71,28 @@ namespace DataVizApp.Controllers
             ColumnDataDto result = new(request.DatasetId, request.ColumnNumber, dtoRecords);
 
             return Ok(result);
-            
         }
+
+        public record GetColumnDataByNameRequest(int DatasetId, string ColumnName);
+        public record ColumnDataWithNameDto(int DatasetId, string ColumnName, int ColumnNumber, List<DataRecordDto> DataRecords);
+
+        [HttpPost("getColumnDataByName")]
+        public async Task<ActionResult<ColumnDataWithNameDto>> GetColumnDataByName([FromBody] GetColumnDataByNameRequest request)
+        {
+            Dataset? dataset = await _datasetService.GetDatasetByIdAsync(request.DatasetId);
+            if (dataset == null) return NotFound("Dataset not found.");
+
+            // Get columns
+            (DatasetColumn column, List<DataRecord> records) = await _datasetService.GetColumnDataByNameAsync(request.DatasetId, request.ColumnName);
+
+            List<DataRecordDto> dtoRecords = [.. records.Select(r => new DataRecordDto(r.RecordNumber, r.Value))];
+
+            ColumnDataWithNameDto result = new(request.DatasetId, request.ColumnName, column.ColumnNumber, dtoRecords);
+
+            return Ok(result);
+        }
+
+
 
         public record ColumnProfileDto(
             int ColumnNumber,

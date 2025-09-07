@@ -131,6 +131,19 @@ namespace DataVizApp.Services
                 .ToListAsync();
         }
 
+        public async Task<(DatasetColumn, List<DataRecord>)> GetColumnDataByNameAsync(int datasetId, string columnName)
+        {
+            // find column number first
+            DatasetColumn column = await _appDbContext.DatasetColumns
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.DatasetId == datasetId && c.ColumnName == columnName)
+                ?? throw new Exception("Column not found");
+
+            return (column, await _cosmosDbContext.DataRecords
+                .Where(r => r.DatasetId == datasetId && r.ColumnNumber == column.ColumnNumber)
+                .ToListAsync());
+        }
+
         public async Task<List<DataRecord>> GetColumnDataByIdAsync(int datasetId, int columnNumber, int count)
         {
             return await _cosmosDbContext.DataRecords
