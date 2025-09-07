@@ -12,11 +12,14 @@ const rowsFromColumns = (data: AIColumnsProfileContext) => {
   return rows;
 };
 
+
+
 export const vegaSpecConverter = (data: AIColumnsProfileContext) => {
   const values = rowsFromColumns(data);
   return {
     $schema: "https://vega.github.io/schema/vega-lite/v5.json",
     description: "Chart from AIColumnsProfileContext",
+    title: "Sample Chart",
     data: { values }, // <-- array of plain objects
     autosize: { type: "fit", contains: "padding" }, // key for responsiveness
     width: "container", // adapt to parent div

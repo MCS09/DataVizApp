@@ -30,6 +30,8 @@ export function useVegaSpec({ width, ratio, theme, maxWidth, maxHeight }: Args) 
 
   const clampedWidth = Math.min(width, maxWidth);
 
+
+
   const spec = useMemo(() => {
     const colorField =
       baseSpec.encoding?.x?.field ||

@@ -7,7 +7,7 @@ import ChartBox from "./components/ChartBox";
 import ExportButtons from "./components/ExportButtons";
 import { useVegaSpec } from "./hooks/useVegaSpec";
 import { chartThemes } from "./lib/chartThemes";
-import { AIColumnsProfileContext } from "./data";
+import { AIColumnsProfileContext, ColumnData } from "./data";
 import { fetchData, safeJsonParse } from "@/lib/api";
 import useStore from "@/lib/store";
 import { AIResponse } from "../layout";
@@ -16,6 +16,27 @@ const getAIContext = async (datasetId: number) =>
   await fetchData<{ "profiles" : AIColumnsProfileContext[]}>(
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getSchema/${datasetId}`
   );
+
+type GetColumnDataByNameRequestDto = 
+{
+  datasetId: number,
+  columnName: string
+}
+
+const getColumnData = async (getColumnDataRequestDto: GetColumnDataByNameRequestDto) =>
+    await fetchData<ColumnData>(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnDataByName`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(getColumnDataRequestDto),
+    });
+
+getColumnData(
+  { datasetId: 198, columnName: 'id' }
+).then((data) => {
+  console.log("Column Data", data);
+})
 
 export default function Page() {
   const [datasetId, setDatasetId] = useState<number | undefined>();
@@ -72,6 +93,8 @@ export default function Page() {
     }
   }, [datasetId, baseSpec]);
 
+
+
   useEffect(() => {
     // If we have a new AI response, update the base spec
     if (sharedState.aiResponseContext) {
@@ -84,6 +107,20 @@ export default function Page() {
       setBaseSpec(specs);
     }
   }, [sharedState.aiResponseContext]);
+
+  // function extendSpecWithData(initialSpec: typeof spec): typeof spec {
+  //   const columnData: ColumnData[] = [];
+    
+  //   return {
+  //     ...initialSpec,
+  //     data: {
+  //       values: 
+
+  //     }
+  //   }
+  // }
+
+  function extendSpecWithData(initialSpec: typeof spec): typeof spec | null {return null}
 
 
 
@@ -102,7 +139,7 @@ export default function Page() {
         />
 
         {/* Chart */}
-        <ChartBox spec={spec} onViewReady={(view) => (vegaRef.current = view)} />
+        <ChartBox spec={extendSpecWithData(spec) ?? spec} onViewReady={(view) => (vegaRef.current = view)} />
 
         {/* Theme picker */}
         <ChartThemePicker

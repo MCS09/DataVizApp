@@ -1,3 +1,5 @@
+import { StringValue } from "vega";
+
 export type AIColumnsProfileContext = {
   columnNumber: number;
   columnName: string;
@@ -7,7 +9,15 @@ export type AIColumnsProfileContext = {
   }[];
 }[]
 
-
+export type ColumnData = {
+  datasetId: number;
+  columnNumber: number;
+  columnName: string;
+  dataRecords: {
+      recordNumber: number;
+      value: string;
+  }[];
+}
 
 export const sampleAIColumnsProfileContext: AIColumnsProfileContext = [
   {
