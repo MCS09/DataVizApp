@@ -32,11 +32,7 @@ const getColumnData = async (getColumnDataRequestDto: GetColumnDataByNameRequest
         body: JSON.stringify(getColumnDataRequestDto),
     });
 
-getColumnData(
-  { datasetId: 198, columnName: 'id' }
-).then((data) => {
-  console.log("Column Data", data);
-})
+
 
 export default function Page() {
   const [datasetId, setDatasetId] = useState<number | undefined>();
@@ -108,25 +104,77 @@ export default function Page() {
     }
   }, [sharedState.aiResponseContext]);
 
-  // function extendSpecWithData(initialSpec: typeof spec): typeof spec {
-  //   const columnData: ColumnData[] = [];
-    
-  //   return {
-  //     ...initialSpec,
-  //     data: {
-  //       values: 
+    const cell = (v: string) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : String(v).trim();
+    };
+    async function valuesFromFeatures(
+      datasetId: number,
+      features: string[]
+    ): Promise<Record<string, any>[]> {
+      // parallel fetch for all features
+      const columns: ColumnData[] = await Promise.all(
+        features.map(f => getColumnData({ datasetId, columnName: f }))
+      );
 
-  //     }
-  //   }
-  // }
+      // merge column wise to row wise
+      const rowMap = columns.reduce<Record<number, Record<string, any>>>((acc, col) => {
+        col.dataRecords.forEach(({ recordNumber, value }) => {
+          const row = acc[recordNumber] || (acc[recordNumber] = {});
+          row[col.columnName] = cell(value);
+        });
+        return acc;
+      }, {});
 
-  function extendSpecWithData(initialSpec: typeof spec): typeof spec | null {return null}
+      // ordered array by recordNumber
+      return Object.keys(rowMap)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .map(k => rowMap[k]);
+    }
+
+  async function extendSpecWithData(datasetId:number,initialSpec: typeof spec): Promise<typeof spec> {
+    const columnData: ColumnData[] = [];
+    const feat = Object.keys(spec.data?.values?.[0] ?? {});
+  
+    const value = await valuesFromFeatures(datasetId, feat);
+    return {
+      ...initialSpec,
+      data: {
+        values: value // Use the fetched values here
+      }
+    };
+  }
+
+  // build the promise once per change
+  const fullSpecPromise = React.useMemo(
+    () =>
+      datasetId !== undefined
+        ? extendSpecWithData(datasetId, spec)   // returns Promise<Spec>
+        : Promise.resolve(spec),
+    [datasetId, spec]
+  );
+
+  // resolve to a plain object for ChartBox
+  const [resolvedSpec, setResolvedSpec] = React.useState(spec);
+
+  React.useEffect(() => {
+    let alive = true;
+    fullSpecPromise
+      .then(s => { if (alive) setResolvedSpec(s); })
+      .catch(() => { if (alive) setResolvedSpec(spec); });
+    return () => { alive = false; };
+  }, [fullSpecPromise, spec]);
+
+
+  // function extendSpecWithData(initialSpec: typeof spec): typeof spec | null {return null}
 
 
 
   return (
-    <div className="w-full h-screen flex justify-center items-center bg-black">
-      <div className="w-full max-w-5xl flex flex-col gap-6">
+    <div className="w-full h-screen flex justify-center items-center">
+      <div className="w-full max-w-5xl flex flex-col gap-6 items-center justify-center">
         {/* Controls */}
         <ChartControls
           width={width}
@@ -139,7 +187,7 @@ export default function Page() {
         />
 
         {/* Chart */}
-        <ChartBox spec={extendSpecWithData(spec) ?? spec} onViewReady={(view) => (vegaRef.current = view)} />
+        <ChartBox spec={resolvedSpec} onViewReady={(view) => (vegaRef.current = view)} />
 
         {/* Theme picker */}
         <ChartThemePicker
