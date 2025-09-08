@@ -122,7 +122,7 @@ export default function ProfilingPage() {
               relationship: e.columnProfile.relationship,
             })),
           });
-          if (res) router.push("/data/pipeline/cleaning");
+          if (res) router.push("/data/pipeline/visualization");
         }}
       />
     </div>
