@@ -81,7 +81,7 @@ namespace DataVizApp.Controllers
         {
             Dataset? dataset = await _datasetService.GetDatasetByIdAsync(request.DatasetId);
             if (dataset == null) return NotFound("Dataset not found.");
-
+            
             // Get columns
             (DatasetColumn column, List<DataRecord> records) = await _datasetService.GetColumnDataByNameAsync(request.DatasetId, request.ColumnName);
 

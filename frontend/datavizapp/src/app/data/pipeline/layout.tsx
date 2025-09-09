@@ -104,6 +104,7 @@ const SUGGESTION_PROMPTS_BY_ROUTE: { [key: string]: string[] } = {
   ],
   [ROUTES.datasetVisualizationPage]: [
     // TODO: Add prompts
+    "Make a chart for me"
   ],
 };
 

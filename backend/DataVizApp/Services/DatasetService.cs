@@ -98,12 +98,17 @@ namespace DataVizApp.Services
                 Relationship = dto.Relationship
             })];
 
-            // Ensure order follows 0..*
             columns.Sort((a, b) => a.ColumnNumber.CompareTo(b.ColumnNumber));
             for (int i = 0; i < columns.Count; i++)
             {
                 if (columns[i].ColumnNumber != i)
                     throw new ArgumentException("Column numbers must start at 0 and increment by 1 with no gaps.");
+            }
+
+            // Ensure no duplicate column names
+            if (columns.GroupBy(c => c.ColumnName).Any(g => g.Count() > 1))
+            {
+                throw new ArgumentException("Duplicate column names are not allowed for a dataset.");
             }
 
             // Remove existing columns in the database first to avoid unique constraint conflicts
