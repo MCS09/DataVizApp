@@ -6,7 +6,7 @@ import { AGENT_ENUM_BY_ROUTE, ROUTES, WORKFLOW_STAGES_NAMES_BY_ROUTE } from "@/c
 import { fetchData, safeJsonParse } from "@/lib/api";
 import useStore from "@/lib/store";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { JSX, useEffect, useRef, useState } from "react";
 
 type ChatHistoryRequestDto = {
   role: string;
@@ -121,18 +121,14 @@ export default function DataPagesLayout({
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { sharedState, updateState } = useStore();
   const [datasetId, setDatasetId] = useState<number>();
+  const [dynamicContent, setDynamicContent] = useState<JSX.Element | null>(null);
 
   // Get the prompts for the current route
   const suggestionPrompts = SUGGESTION_PROMPTS_BY_ROUTE[pathname] || [];
 
   const handleSuggestionClick = (suggestion: string) => {
     // Set the prompt to be sent to the AI
-    setSentPrompt(suggestion);
-    // Immediately add the prompt to the chat history for a responsive UI
-    setChatHistory((prev) => [
-      ...prev,
-      { message: suggestion, isStart: false },
-    ]);
+    setPrompt(suggestion);
   };
 
   // load datasetId (From session store)
@@ -243,6 +239,38 @@ export default function DataPagesLayout({
     }
   }, [chatHistory]);
 
+  useEffect(() => {
+    if (chatHistory.length === 0 && suggestionPrompts.length > 0) {
+      setDynamicContent(
+        <div className="flex flex-col items-center justify-center h-full text-center">
+          <h2 className="text-xl font-semibold mb-2">AI Assistant</h2>
+          <p className="text-sm text-base-content/70 mb-4">
+            Select a suggestion below to get started.
+          </p>
+          <div className="space-y-2 w-full max-w-sm">
+            {suggestionPrompts.map((prompt, index) => (
+              <button
+                key={index}
+                className="btn btn-outline w-full justify-start text-left normal-case font-normal"
+                onClick={() => handleSuggestionClick(prompt)}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    } else {
+      setDynamicContent(
+        <>
+          {chatHistory.map((msg, idx) => (
+            <ChatBubble key={idx} {...msg} />
+          ))}
+        </>
+      );
+    }
+  }, [chatHistory, suggestionPrompts, pathname]);
+
   return (
     <div className="flex">
       <div
@@ -260,31 +288,7 @@ export default function DataPagesLayout({
           ref={chatContainerRef}
           className="flex-1 overflow-y-auto p-4 bg-base-200 rounded-lg">
 
-          {chatHistory.length === 0 && suggestionPrompts.length > 0 ? (
-            // If chat is empty, show the suggestions UI
-            <div className="flex flex-col items-center justify-center h-full text-center">
-              <h2 className="text-xl font-semibold mb-2">AI Assistant</h2>
-              <p className="text-sm text-base-content/70 mb-4">
-                Select a suggestion below to get started.
-              </p>
-              <div className="space-y-2 w-full max-w-sm">
-                {suggestionPrompts.map((prompt, index) => (
-                  <button
-                    key={index}
-                    className="btn btn-outline w-full justify-start text-left normal-case font-normal"
-                    onClick={() => handleSuggestionClick(prompt)}
-                  >
-                    {prompt}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : (
-            // Otherwise, show the actual chat history
-            chatHistory.map((msg, idx) => (
-              <ChatBubble key={idx} {...msg} />
-            ))
-          )}
+          {dynamicContent}
         </div>
 
         {/* Input bar at the bottom */}
