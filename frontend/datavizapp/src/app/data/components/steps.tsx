@@ -12,8 +12,7 @@ export default function Steps({pathname} : {pathname: string}) {
   { label: "Select", route: ROUTES.datasetSelectionPage },
   { label: "Profile", route: ROUTES.datasetProfilingPage },
   { label: "Clean", route: ROUTES.datasetCleaningPage },
-  { label: "Visualization", route: ROUTES.datasetVisualizationPage },
-  { label: "tbc2", route: "/data/tbc2" }
+  { label: "Visualization", route: ROUTES.datasetVisualizationPage }
 ];
   const currentStep = steps.findIndex((step) => step.route === pathname);
 

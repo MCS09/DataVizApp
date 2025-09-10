@@ -335,7 +335,7 @@ export default function DatasetSelectionPage() {
                 className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl glow font-semibold"
                 onClick={handleConfirm}
               >
-                {loading ? "Loading..." : "Continue to Clean"}
+                {loading ? "Loading..." : "Continue to Profile"}
               </button>
             </div>
           )}
