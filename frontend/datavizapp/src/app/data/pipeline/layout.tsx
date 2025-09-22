@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { ChatBubble, ChatBubbleParam } from "@/app/components/ai/ChatBubble";
 import Button from "@/app/components/input/Button";
@@ -100,7 +100,10 @@ const SUGGESTION_PROMPTS_BY_ROUTE: { [key: string]: string[] } = {
     "Find possible primary keys",
   ],
   [ROUTES.datasetCleaningPage]: [
-    // TODO: Add prompts
+    "Identify missing values", 
+    "Suggest cleaning steps for the current column", 
+    "Detect outliers in this column",
+    "Explain recent cleaning changes"
   ],
   [ROUTES.datasetVisualizationPage]: [
     // TODO: Add prompts
