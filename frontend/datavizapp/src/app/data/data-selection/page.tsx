@@ -8,11 +8,7 @@ import { ROUTES } from "@/constants/routes";
 import { fetchData } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { Dataset, UserDatasetsDto } from "@/lib/dataset";
-import {
-  DataFrame,
-  mapDataFrameToColumnData,
-  useLoadDataFrame,
-} from "@/lib/hooks/cleaningHooks";
+import { DataFrame, mapDataFrameToColumnData } from "@/lib/hooks/cleaningHooks";
 import { ColumnProfile } from "../pipeline/profiling/components/CarouselItem";
 
 // Create Dataset object in DB
@@ -81,6 +77,123 @@ export async function loadLatestDataset(userId: string): Promise<Dataset | null>
   );
 }
 
+const parseCsvText = (text: string): string[][] => {
+  const rows: string[][] = [];
+  let currentRow: string[] = [];
+  let currentValue = "";
+  let inQuotes = false;
+
+  const pushCell = () => {
+    currentRow.push(currentValue);
+    currentValue = "";
+  };
+
+  const pushRow = () => {
+    if (currentRow.length) {
+      rows.push(currentRow);
+    }
+    currentRow = [];
+  };
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+
+    if (char === '"') {
+      if (inQuotes && text[i + 1] === '"') {
+        currentValue += '"';
+        i += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === ',' && !inQuotes) {
+      pushCell();
+      continue;
+    }
+
+    if ((char === '\n' || char === '\r') && !inQuotes) {
+      if (char === '\r' && text[i + 1] === '\n') {
+        i += 1;
+      }
+      pushCell();
+      pushRow();
+      continue;
+    }
+
+    currentValue += char;
+  }
+
+  pushCell();
+  pushRow();
+
+  while (rows.length && rows[rows.length - 1].every((cell) => cell === "")) {
+    rows.pop();
+  }
+
+  return rows;
+};
+
+const inferColumnType = (values: string[]): string => {
+  const nonEmpty = values
+    .map((value) => value?.trim())
+    .filter((value) => value !== undefined && value !== "");
+
+  if (nonEmpty.length === 0) {
+    return "NoneType";
+  }
+
+  if (nonEmpty.every((value) => /^(true|false)$/i.test(value))) {
+    return "bool";
+  }
+
+  const intPattern = /^-?\d+$/;
+  if (nonEmpty.every((value) => intPattern.test(value))) {
+    return "int";
+  }
+
+  const floatPattern = /^-?\d*(?:\.\d+)?(?:[eE][-+]?\d+)?$/;
+  if (nonEmpty.every((value) => floatPattern.test(value))) {
+    return "float";
+  }
+
+  return "str";
+};
+
+const buildDatasetStructures = (
+  headers: string[],
+  rows: string[][]
+): { columns: ColumnProfile[]; dataFrame: DataFrame } => {
+  const normalizedHeaders = headers.map((header, idx) => {
+    const trimmed = header?.trim();
+    return trimmed && trimmed.length > 0 ? trimmed : `Column ${idx + 1}`;
+  });
+
+  const columns = normalizedHeaders.map((name, idx) => {
+    const columnValues = rows.map((row) => (row[idx] ?? "").trim());
+    return {
+      columnNumber: idx,
+      columnName: name,
+      columnDescription: "",
+      dataType: inferColumnType(columnValues),
+      relationship: "",
+    };
+  });
+
+  const dataFrame: DataFrame = [];
+  rows.forEach((row, rowIdx) => {
+    columns.forEach((_, colIdx) => {
+      dataFrame.push({
+        recordNumber: rowIdx,
+        columnNumber: colIdx,
+        data: row[colIdx] ?? "",
+      });
+    });
+  });
+
+  return { columns, dataFrame };
+};
 export default function DatasetSelectionPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -104,7 +217,62 @@ export default function DatasetSelectionPage() {
   const [metadata, setMetadata] = useState<GoogleDriveFileMetadata | null>(
     null
   );
-  const {dataFrame, setFileData, columns} = useLoadDataFrame();
+  const [dataFrame, setDataFrameState] = useState<DataFrame | null>(null);
+  const [columns, setColumnsState] = useState<ColumnProfile[] | null>(null);
+  const [parsingCsv, setParsingCsv] = useState(false);
+  const [parseError, setParseError] = useState<string | null>(null);
+
+  const processCsvText = useCallback(
+    (text: string) => {
+      const source = text ?? "";
+      setParsingCsv(true);
+      setParseError(null);
+
+      try {
+        const parsedRows = parseCsvText(source);
+        if (!parsedRows.length || parsedRows[0].length === 0) {
+          throw new Error("Missing header row");
+        }
+
+        const headers = parsedRows[0].map((header, idx) => {
+          const trimmed = header?.trim();
+          return trimmed && trimmed.length > 0 ? trimmed : `Column ${idx + 1}`;
+        });
+
+        const dataRows = parsedRows.slice(1);
+        const normalizedRows = dataRows.map((row) => {
+          const copy = [...row];
+          if (copy.length < headers.length) {
+            return [...copy, ...Array(headers.length - copy.length).fill("")];
+          }
+          if (copy.length > headers.length) {
+            return copy.slice(0, headers.length);
+          }
+          return copy;
+        });
+
+        const { columns: derivedColumns, dataFrame: derivedDataFrame } =
+          buildDatasetStructures(headers, normalizedRows);
+
+        setPreviewHeaders(headers);
+        setPreviewData(normalizedRows);
+        setColumnsState(derivedColumns);
+        setDataFrameState(derivedDataFrame);
+        setShowPreview(true);
+      } catch (err) {
+        console.error("Failed to parse CSV:", err);
+        setPreviewHeaders([]);
+        setPreviewData([]);
+        setColumnsState(null);
+        setDataFrameState(null);
+        setShowPreview(false);
+        setParseError("Unable to process the CSV. Please check the file formatting and try again.");
+      } finally {
+        setParsingCsv(false);
+      }
+    },
+    []
+  );
 
   const handleFileUploadLocal = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -115,60 +283,95 @@ export default function DatasetSelectionPage() {
 
     const reader = new FileReader();
     reader.onload = (e) => {
-      const text = e.target?.result as string;
-      const rows = text.trim().split("\n").map((row) => row.split(","));
-      setPreviewHeaders(rows[0]);
-      setPreviewData(rows.slice(1));
-      setShowPreview(true);
+      const text = (e.target?.result as string) ?? "";
+      processCsvText(text);
+    };
+    reader.onerror = () => {
+      console.error("Failed to read local file");
+      setParseError("Unable to read the file. Please try again.");
+      setParsingCsv(false);
+      setPreviewHeaders([]);
+      setPreviewData([]);
+      setColumnsState(null);
+      setDataFrameState(null);
+      setShowPreview(false);
     };
     reader.readAsText(file);
   };
 
   const handleFilePicked = useCallback(
     async (newAccessToken: string, newMetadata: GoogleDriveFileMetadata) => {
-      setFileData({ id: newMetadata.id, accessToken: newAccessToken });
       setMetadata(newMetadata);
 
       setFileName(newMetadata.name);
       setDatasetName(newMetadata.name.replace(/\.[^/.]+$/, "")); // auto-fill without extension
 
-      // Fetch file contents
-      const res = await fetch(
-        `https://www.googleapis.com/drive/v3/files/${newMetadata.id}?alt=media`,
-        { headers: { Authorization: `Bearer ${newAccessToken}` } }
-      );
-      const text = await res.text();
-      const rows = text.trim().split("\n").map((row) => row.split(","));
-      setPreviewHeaders(rows[0]);
-      setPreviewData(rows.slice(1));
-      setShowPreview(true);
-    },
-    [setFileData]
-  );
+      try {
+        setParsingCsv(true);
+        setParseError(null);
 
+        const res = await fetch(
+          `https://www.googleapis.com/drive/v3/files/${newMetadata.id}?alt=media`,
+          { headers: { Authorization: `Bearer ${newAccessToken}` } }
+        );
+
+        if (!res.ok) {
+          throw new Error(`Failed to fetch file: ${res.statusText}`);
+        }
+
+        const text = await res.text();
+        processCsvText(text);
+      } catch (err) {
+        console.error("Failed to load Google Drive file:", err);
+        setParsingCsv(false);
+        setParseError("Unable to load the file from Google Drive. Please try again.");
+        setPreviewHeaders([]);
+        setPreviewData([]);
+        setColumnsState(null);
+        setDataFrameState(null);
+        setShowPreview(false);
+      }
+    },
+    [processCsvText]
+  );
+  
   const handleConfirm = async () => {
     const email = session?.user?.email ?? "";
     if (
-      !metadata ||
       !dataFrame ||
       dataFrame.length === 0 ||
       !email ||
-      !columns
+      !columns ||
+      columns.length === 0
     ) {
       return;
     }
 
     setLoading(true);
 
-    const datasetId = await createDataset(email, columns, dataFrame, "No Name");
+    try {
+      const resolvedName =
+        datasetName.trim() || fileName || metadata?.name || "Untitled Dataset";
 
-    sessionStorage.setItem(
-      "sessionFileData",
-      JSON.stringify({ datasetId: datasetId})
-    );
-    router.push(ROUTES.datasetProfilingPage);
+      const datasetId = await createDataset(
+        email,
+        columns,
+        dataFrame,
+        resolvedName
+      );
+
+      sessionStorage.setItem(
+        "sessionFileData",
+        JSON.stringify({ datasetId })
+      );
+
+      router.push(ROUTES.datasetProfilingPage);
+    } catch (err) {
+      console.error("Failed to create dataset:", err);
+    } finally {
+      setLoading(false);
+    }
   };
-
   const handleUploadSourceChange = (source: "local" | "google") => {
     setUploadSource(source);
     setFileName("");
@@ -177,10 +380,17 @@ export default function DatasetSelectionPage() {
     setPreviewData([]);
     setShowPreview(false);
     setMetadata(null);
+    setColumnsState(null);
+    setDataFrameState(null);
+    setParseError(null);
+    setParsingCsv(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
   };
 
   // ---- Fetch datasets ---- //
-    useEffect(() => {
+  useEffect(() => {
       async function fetchDatasets() {
         if (!email) return;
         console.log("Fetching dataset for email:", email);
@@ -302,6 +512,10 @@ export default function DatasetSelectionPage() {
               )}
           </div>
 
+          {parseError && (
+            <p className="text-sm text-red-600 text-center">{parseError}</p>
+          )}
+
           {showPreview && (
             <div id="preview-section">
               <h3 className="text-lg font-semibold mb-4">Data Preview</h3>
@@ -332,10 +546,11 @@ export default function DatasetSelectionPage() {
 
               <button
                 type="button"
-                className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl glow font-semibold"
+                className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl glow font-semibold disabled:opacity-60 disabled:cursor-not-allowed"
                 onClick={handleConfirm}
+                disabled={!dataFrame?.length || !columns?.length || parsingCsv || loading}
               >
-                {loading ? "Loading..." : "Continue to Profile"}
+                {loading ? "Loading..." : parsingCsv ? "Processing..." : "Continue to Profile"}
               </button>
             </div>
           )}
