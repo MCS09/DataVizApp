@@ -109,7 +109,7 @@ export default function ProfilingPage() {
         </div>
       )}
       <Button
-        label={"Next"}
+        label={"Continue to Cleaning"}
         action={async () => {
           // save the columns to server
           const res = await saveColumns({
@@ -122,7 +122,7 @@ export default function ProfilingPage() {
               relationship: e.columnProfile.relationship,
             })),
           });
-          if (res) router.push("/data/pipeline/visualization");
+          if (res) router.push("/data/pipeline/cleaning");
         }}
       />
     </div>
