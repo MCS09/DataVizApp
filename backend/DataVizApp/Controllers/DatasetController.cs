@@ -28,7 +28,7 @@ namespace DataVizApp.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult<Dataset>> CreateDataset(DatasetDto datasetDto)
+        public async Task<ActionResult<Dataset>> CreateDataset([FromBody] DatasetDto datasetDto)
         {
             Dataset newDataset = new()
             {
