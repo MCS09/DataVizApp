@@ -100,17 +100,24 @@ export function usePyFunctions() {
 
         pyodide.globals.set("embedded_input", embeddedInput);
 
-        const jsonStr = await pyodide.runPythonAsync(`
-          import pandas as pd
-          import numpy as np
-          import io
+        const pythonRunner = [
+          "import pandas as pd",
+          "import numpy as np",
+          "import io",
+          "",
+          "embedded_input_text = embedded_input",
+          "embedded_input_stream = io.StringIO(embedded_input_text)",
+          "embedded_input = embedded_input_text",
+          "",
+          embeddedCode,
+          "",
+          "if \"transform\" not in globals():",
+          "    raise NameError(\"transform function not defined in embedded code\")",
+          "output_json = transform(embedded_input)",
+          "output_json",
+        ].join("\n");
 
-          embedded_input_text = embedded_input
-          embedded_input_stream = io.StringIO(embedded_input_text)
-          embedded_input = embedded_input_text
-          ${embeddedCode}
-          output_json
-        `);
+        const jsonStr = await pyodide.runPythonAsync(pythonRunner);
         return jsonStr;
       } catch (err) {
         setError(err as Error);
