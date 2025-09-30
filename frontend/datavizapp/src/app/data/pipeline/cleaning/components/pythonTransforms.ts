@@ -1,45 +1,38 @@
-﻿export const CLEANING_TRANSFORM_CODE = `
-import json
-import pandas as pd
+﻿/**
+ * pythonTransforms.ts
+ *
+ * Instead of embedding Python code in a string (which caused indentation issues),
+ * we fetch the Python file from `/public/python/cleaning_transforms.py`.
+ */
 
-payload = json.loads(embedded_input)
-records = payload.get("dataRecords", [])
-operation = payload.get("operation")
-options = payload.get("options", {})
+/**
+ * Loads the cleaning transform Python code as plain text.
+ * @returns The Python source code from cleaningfunction.py
+ */
+export async function loadCleaningTransformCode(): Promise<string> {
+  const res = await fetch("/python/cleaningfunction.py");
+  if (!res.ok) {
+    throw new Error(
+      `Failed to load cleaningfunction.py (status: ${res.status})`
+    );
+  }
 
-df = pd.DataFrame(records)
-if df.empty:
-    df = pd.DataFrame(columns=["recordNumber", "value"])
+  let code = await res.text();
 
-if "value" not in df.columns:
-    df["value"] = ""
+  // Remove BOM if present
+  code = code.replace(/^\uFEFF/, "");
 
-df["recordNumber"] = pd.to_numeric(df["recordNumber"], errors="coerce").fillna(0).astype(int)
-df = df.sort_values("recordNumber")
+  // Convert Windows CRLF to LF
+  code = code.replace(/\r\n/g, "\n");
 
-if operation == "fill_missing":
-    fill_value = str(options.get("fillValue", ""))
-    df["value"] = df["value"].replace({None: fill_value})
-    df["value"] = df["value"].apply(lambda v: fill_value if str(v).strip() in ["", "nan", "NaN", "None"] else v)
-elif operation == "trim_whitespace":
-    df["value"] = df["value"].astype(str).str.strip()
-elif operation == "drop_duplicates":
-    df = df.drop_duplicates(subset=["value"], keep="first").sort_values("recordNumber")
-elif operation == "to_lower":
-    df["value"] = df["value"].astype(str).str.lower()
-elif operation == "to_upper":
-    df["value"] = df["value"].astype(str).str.upper()
-elif operation == "replace_value":
-    search = str(options.get("search", ""))
-    replace = str(options.get("replace", ""))
-    df["value"] = df["value"].astype(str).str.replace(search, replace, regex=False)
+  // Convert any stray \r to \n
+  code = code.replace(/\r/g, "\n");
 
-result = {
-    "dataRecords": df.to_dict(orient="records")
+  // Trim leading blank lines/spaces
+  code = code.replace(/^[\s\n]+/, "");
+
+  return code;
 }
-
-output_json = json.dumps(result)
-`;
 
 export type CleaningOperation =
   | "fill_missing"
@@ -54,4 +47,3 @@ export type CleaningOptions = {
   search?: string;
   replace?: string;
 };
-
