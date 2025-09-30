@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, useEffect, useMemo, useRef, useState } from "react";
 import { usePyFunctions } from "@/lib/hooks/cleaningHooks";
 import useStore from "@/lib/store";
 import { useColumnData } from "@/lib/hooks/useColumnData";
@@ -11,7 +11,7 @@ import TransformationHistory, {
   TransformationHistoryItem,
 } from "./components/TransformationHistory";
 import {
-  CLEANING_TRANSFORM_CODE,
+  loadCleaningTransformCode,
   CleaningOperation,
   CleaningOptions,
 } from "./components/pythonTransforms";
@@ -67,6 +67,7 @@ export default function CleaningPage() {
   const [columnProfiles, setColumnProfiles] = useState<ColumnProfile[]>([]);
   const [columnsLoading, setColumnsLoading] = useState(false);
   const [columnsError, setColumnsError] = useState<string | null>(null);
+  const skipSyncRef = useRef(false);
 
 
   // Load dataset context from session storage
@@ -83,6 +84,7 @@ export default function CleaningPage() {
       console.warn("Failed to parse sessionFileData", error);
     }
   }, [setDatasetId, setColumnNumber]);
+
   useEffect(() => {
     if (!datasetId) {
       setColumnProfiles([]);
@@ -180,6 +182,11 @@ export default function CleaningPage() {
 
   // Sync rows whenever the backend column data changes
   useEffect(() => {
+    if (skipSyncRef.current) {
+      skipSyncRef.current = false;
+      return;
+    }
+
     if (!columnData) {
       setRows([]);
       setBaselineRows([]);
@@ -220,15 +227,22 @@ export default function CleaningPage() {
     );
     setDirty(true);
 
+    skipSyncRef.current = true;
+    let updatedColumn: ColumnData | undefined;
+
     setColumnData((prev) => {
       if (!prev) return prev;
       const nextRecords = prev.dataRecords.map((record) =>
         record.recordNumber === recordNumber ? { ...record, value } : record
       );
       const updated = { ...prev, dataRecords: nextRecords };
-      updateState({ aiContext: JSON.stringify(updated) });
+      updatedColumn = updated;
       return updated;
     });
+
+    if (updatedColumn) {
+      updateState({ aiContext: JSON.stringify(updatedColumn) });
+    }
   };
 
   const handleApplyTransformation = async (
@@ -248,8 +262,9 @@ export default function CleaningPage() {
         operation,
         options,
       };
+      const rawCode = await loadCleaningTransformCode();
       const response = await executeEmbeddedCode(
-        CLEANING_TRANSFORM_CODE,
+        rawCode,
         JSON.stringify(payload)
       );
       const parsed = safeJsonParse<{
@@ -286,15 +301,22 @@ export default function CleaningPage() {
 
       setRows(nextRows);
       setDirty(true);
+      skipSyncRef.current = true;
+      let updatedColumn: ColumnData | undefined;
+
       setColumnData((prev) => {
         if (!prev) return prev;
         const updated: ColumnData = {
           ...prev,
           dataRecords: rowsToColumnRecords(nextRows),
         };
-        updateState({ aiContext: JSON.stringify(updated) });
+        updatedColumn = updated;
         return updated;
       });
+
+      if (updatedColumn) {
+        updateState({ aiContext: JSON.stringify(updatedColumn) });
+      }
     } catch (error) {
       console.error("Failed to apply transformation", error);
       setLocalError(
@@ -314,15 +336,22 @@ export default function CleaningPage() {
       const restored = target.snapshot.map((row) => ({ ...row }));
       setRows(restored);
       setDirty(true);
+      skipSyncRef.current = true;
+      let updatedColumn: ColumnData | undefined;
+
       setColumnData((prevColumn) => {
         if (!prevColumn) return prevColumn;
         const updated: ColumnData = {
           ...prevColumn,
           dataRecords: rowsToColumnRecords(restored),
         };
-        updateState({ aiContext: JSON.stringify(updated) });
+        updatedColumn = updated;
         return updated;
       });
+
+      if (updatedColumn) {
+        updateState({ aiContext: JSON.stringify(updatedColumn) });
+      }
 
       return prev.slice(0, index);
     });
@@ -333,15 +362,22 @@ export default function CleaningPage() {
     setRows(restored);
     setDirty(false);
     setHistory([]);
+    skipSyncRef.current = true;
+    let updatedColumn: ColumnData | undefined;
+
     setColumnData((prev) => {
       if (!prev) return prev;
       const updated: ColumnData = {
         ...prev,
         dataRecords: rowsToColumnRecords(restored),
       };
-      updateState({ aiContext: JSON.stringify(updated) });
+      updatedColumn = updated;
       return updated;
     });
+
+    if (updatedColumn) {
+      updateState({ aiContext: JSON.stringify(updatedColumn) });
+    }
   };
 
   const handleSave = async () => {
@@ -368,6 +404,7 @@ export default function CleaningPage() {
       setBaselineRows(rows.map((row) => ({ ...row })));
       setHistory([]);
       setDirty(false);
+      skipSyncRef.current = true;
       setColumnData(payload);
       updateState({ aiContext: JSON.stringify(payload) });
     } catch (error) {
