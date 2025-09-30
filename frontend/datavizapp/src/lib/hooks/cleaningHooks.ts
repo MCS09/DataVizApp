@@ -81,10 +81,13 @@ export function usePyFunctions() {
   return { loading, error, isReady, executeEmbeddedCode };
 }
 
+// Define a new type that can be either a Google Drive source or a local File
+type FileDataSource = FileData | File;
+
 export function useLoadDataFrame() {
-  const [fileData, setFileData] = useState<FileData | null>(null);
+  const [fileData, setFileData] = useState<FileDataSource | null>(null);
   const [dataFrame, setDataFrame] = useState<DataFrame | null>(null);
-  const [columns, setColunns] = useState<ColumnProfile[]|undefined>();
+  const [columns, setColumns] = useState<ColumnProfile[] | undefined>();
 
   const { isReady, executeEmbeddedCode, loading, error } = usePyFunctions();
 
@@ -93,38 +96,37 @@ export function useLoadDataFrame() {
 
     const load = async () => {
       try {
-        const url = `https://www.googleapis.com/drive/v3/files/${fileData.id}?alt=media`;
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${fileData.accessToken}` },
-        });
-        if (!response.ok) {
-          throw new Error(`Error fetching file: ${response.statusText}`);
-        }
+        const fileContent = await (async () => {
+          if ('id' in fileData) {
+            // It's a Google Drive file
+            const url = `https://www.googleapis.com/drive/v3/files/${fileData.id}?alt=media`;
+            const response = await fetch(url, {
+              headers: { Authorization: `Bearer ${fileData.accessToken}` },
+            });
+            if (!response.ok) {
+              throw new Error(`Error fetching file: ${response.statusText}`);
+            }
+            return response.text();
+          } else {
+            // It's a local File object
+            return fileData.text();
+          }
+        })();
 
-        const fileContent = await response.text();
-
+        // The rest of the function proceeds as before
         const result = await executeEmbeddedCode(
           `
           df = pd.read_csv(embedded_input)
-
-          # Melt into cell-oriented format
+          # ... (rest of your python code is unchanged) ...
           cell_df = df.reset_index().rename(columns={df.index.name or "index": "recordNumber"})
           cell_df = cell_df.melt(id_vars=["recordNumber"], var_name="columnName", value_name="data")
-
-          # Map column names → indices
           col_map = {name: i for i, name in enumerate(df.columns)}
           cell_df["columnNumber"] = cell_df["columnName"].map(col_map)
-
-          # Function to infer actual Python type name
           def infer_python_type(series: pd.Series) -> str:
-              # drop nulls to avoid errors
               non_null = series.dropna()
-              if non_null.empty:
-                  return "NoneType"
+              if non_null.empty: return "NoneType"
               sample = non_null.iloc[0]
-              return type(sample).__name__   # e.g. 'int', 'float', 'str', 'bool', 'Timestamp'
-
-          # Build headers with python type
+              return type(sample).__name__
           headers = [
               {
                   "columnNumber": i,
@@ -135,15 +137,11 @@ export function useLoadDataFrame() {
               }
               for i, name in enumerate(df.columns)
           ]
-
-          # Ensure all data is string for output
           cell_df["data"] = cell_df["data"].astype(str)
-
           output = {
               "headers": headers,
               "data": cell_df[["recordNumber", "columnNumber", "data"]].to_dict(orient="records")
           }
-
           import json
           output_json = json.dumps(output)
           `,
@@ -151,11 +149,10 @@ export function useLoadDataFrame() {
         );
 
         const jsonResult = safeJsonParse<{headers: ColumnProfile[], data: DataFrame}>(result);
-
         if (!jsonResult) throw new Error("Error loading dataframe");
 
         setDataFrame(jsonResult.data);
-        setColunns(jsonResult.headers);
+        setColumns(jsonResult.headers);
         
       } catch (err) {
         console.error("Failed to load dataframe:", err);
