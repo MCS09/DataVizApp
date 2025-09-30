@@ -82,7 +82,11 @@ if (builder.Environment.IsDevelopment())
     });
 }
 
+builder.Services.AddRequestDecompression();
+
 var app = builder.Build();
+
+app.UseRequestDecompression();
 
 // Configure the HTTP request pipeline
 if (app.Environment.IsDevelopment())

@@ -135,6 +135,25 @@ namespace DataVizApp.Controllers
             return NoContent();
         }
 
+        public record BatchColumnDataDto(List<ColumnDataDto> ColumnDataList);
+
+        [HttpPost("setColumnDataBatch")]
+        public async Task<IActionResult> SetColumnDataBatch([FromBody] BatchColumnDataDto request)
+        {
+            var tasks = new List<Task<IActionResult>>();
+            foreach (var columnData in request.ColumnDataList)
+            {
+                tasks.Add(SetColumnData(columnData));
+            }
+            var results = await Task.WhenAll(tasks);
+            var firstError = results.FirstOrDefault(r => r is not NoContentResult);
+            if (firstError != null)
+            {
+                return firstError;
+            }
+            return NoContent();
+        }
+
 
 
         public record DatasetColumnsRequest(int DatasetId, List<DatasetColumnDto> NewColumns);

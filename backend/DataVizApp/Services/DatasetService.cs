@@ -7,10 +7,14 @@ using System.Linq;
 using System.Reflection.Metadata.Ecma335;
 using System.Collections;
 using DataVizApp.Models.DTO;
+using Microsoft.Azure.Cosmos;
+using Microsoft.Azure.Cosmos.Linq;
+using System.Text.Json.Serialization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DataVizApp.Services
 {
-    public class DatasetService(AppDbContext appDbContext, CosmosDbContext cosmosDbContext, AgentService agentService)
+    public class DatasetService(AppDbContext appDbContext, CosmosDbContext cosmosDbContext, AgentService agentService, IServiceScopeFactory scopeFactory)
     {
 
 
@@ -19,28 +23,37 @@ namespace DataVizApp.Services
 
         private readonly AgentService _agentService = agentService;
 
+        private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
+
         public async Task<Dataset?> GetDatasetByIdAsync(int id)
         {
-            return await _appDbContext.Datasets
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            return await dbContext.Datasets
                 .FirstOrDefaultAsync(d => d.DatasetId == id);
         }
 
         public async Task<List<Dataset>> GetDatasetByUserIdAsync(string userId)
         {
-            return await _appDbContext.Datasets
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            return await dbContext.Datasets
                 .Where(d => d.UserId == userId)
                 .ToListAsync();
         }
 
         public async Task<Dataset> CreateDatasetAsync(Dataset dataset)
         {
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
             // Insert dataset first
-            _appDbContext.Datasets.Add(dataset);
-            await _appDbContext.SaveChangesAsync(); // Generates DatasetId
+            dbContext.Datasets.Add(dataset);
+            await dbContext.SaveChangesAsync(); // Generates DatasetId
 
             // Get WorkflowStagesNames
             List<WorkflowStagesName> workflowStagesNames =
-                await _appDbContext.WorkflowStagesNames.ToListAsync();
+                await dbContext.WorkflowStagesNames.ToListAsync();
 
             // Add WorkflowStage entries
             foreach (var stageName in workflowStagesNames)
@@ -52,33 +65,39 @@ namespace DataVizApp.Services
                     WorkflowStageName = stageName.WorkflowStageName,
                     AzureAgentThreadId = newThread
                 };
-                _appDbContext.WorkflowStages.Add(workflowStage);
+                dbContext.WorkflowStages.Add(workflowStage);
             }
 
-            await _appDbContext.SaveChangesAsync();
+            await dbContext.SaveChangesAsync();
             return dataset;
         }
 
         public async Task<WorkflowStage?> GetWorkflowStageByDatasetIdAsync(int datasetId, string stageName)
         {
-            return await _appDbContext.WorkflowStages
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            return await dbContext.WorkflowStages
                 .FirstOrDefaultAsync(ws => ws.DatasetId == datasetId && ws.WorkflowStageName == stageName);
         }
 
         public async Task<bool> DeleteDatasetAsync(int id)
         {
-            var dataset = await _appDbContext.Datasets.FindAsync(id);
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var dataset = await dbContext.Datasets.FindAsync(id);
             if (dataset == null)
                 return false;
 
-            _appDbContext.Datasets.Remove(dataset);
-            await _appDbContext.SaveChangesAsync();
+            dbContext.Datasets.Remove(dataset);
+            await dbContext.SaveChangesAsync();
             return true;
         }
 
         public async Task<List<DatasetColumn>> GetColumnsByDatasetIdAsync(int datasetId)
         {
-            return await _appDbContext.DatasetColumns
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            return await dbContext.DatasetColumns
                 .AsNoTracking()
                 .Where(c => c.DatasetId == datasetId)
                 .ToListAsync();
@@ -86,8 +105,7 @@ namespace DataVizApp.Services
 
         public async Task<bool> SetColumnsAsync(int datasetId, List<DatasetColumnDto> columnDtos)
         {
-
-            List<DatasetColumn> columns = [.. columnDtos
+            List<DatasetColumn> columns = columnDtos
             .Select(dto => new DatasetColumn
             {
                 DatasetId = datasetId,
@@ -96,7 +114,7 @@ namespace DataVizApp.Services
                 ColumnDescription = dto.ColumnDescription,
                 DataType = dto.DataType,
                 Relationship = dto.Relationship
-            })];
+            }).ToList();
 
             columns.Sort((a, b) => a.ColumnNumber.CompareTo(b.ColumnNumber));
             for (int i = 0; i < columns.Count; i++)
@@ -111,19 +129,22 @@ namespace DataVizApp.Services
                 throw new ArgumentException("Duplicate column names are not allowed for a dataset.");
             }
 
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
             // Remove existing columns in the database first to avoid unique constraint conflicts
-            await _appDbContext.DatasetColumns
+            await dbContext.DatasetColumns
                 .Where(c => c.DatasetId == datasetId)
                 .ExecuteDeleteAsync();
 
             // Clear tracked entities to avoid duplicate tracking errors when re-adding
-            _appDbContext.ChangeTracker.Clear();
+            dbContext.ChangeTracker.Clear();
 
             // Add all new columns in one go
-            await _appDbContext.DatasetColumns.AddRangeAsync(columns);
+            await dbContext.DatasetColumns.AddRangeAsync(columns);
 
             // Persist
-            await _appDbContext.SaveChangesAsync();
+            await dbContext.SaveChangesAsync();
             return true;
         }
 
@@ -138,8 +159,11 @@ namespace DataVizApp.Services
 
         public async Task<(DatasetColumn, List<DataRecord>)> GetColumnDataByNameAsync(int datasetId, string columnName)
         {
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
             // find column number first
-            DatasetColumn column = await _appDbContext.DatasetColumns
+            DatasetColumn column = await dbContext.DatasetColumns
                 .AsNoTracking()
                 .FirstOrDefaultAsync(c => c.DatasetId == datasetId && c.ColumnName == columnName)
                 ?? throw new Exception("Column not found");
@@ -159,25 +183,28 @@ namespace DataVizApp.Services
 
         public async Task<List<DatasetColumn>> GetColumnByDatasetIdAsync(int datasetId)
         {
-            return await _appDbContext.DatasetColumns
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            return await dbContext.DatasetColumns
                 .AsNoTracking()
                 .Where(c => c.DatasetId == datasetId)
                 .ToListAsync();
         }
 
 
-        public async Task<bool> SetColumnDataAsync(int datasetId, int columnNumber, List<DataRecordDto> recordDtos)
+        public async Task<bool> SetColumnDataAsyncOld(int datasetId, int columnNumber, List<DataRecordDto> recordDtos)
         {
 
             // Map each DataRecordDto to a Record object
-            List<DataRecord> newRecords = [.. recordDtos.Select(e => new DataRecord
+            List<DataRecord> newRecords = recordDtos.Select(e => new DataRecord
             {
                 Id = $"{datasetId}-{columnNumber}-{e.RecordNumber}",
                 DatasetId = datasetId,
                 ColumnNumber = columnNumber,
                 RecordNumber = e.RecordNumber,
                 Value = e.Value
-            })];
+            }).ToList();
 
             var existingRecords = await _cosmosDbContext.DataRecords
                 .Where(r => r.DatasetId == datasetId && r.ColumnNumber == columnNumber)
@@ -189,16 +216,89 @@ namespace DataVizApp.Services
             await _cosmosDbContext.SaveChangesAsync();
             return true;
         }
+        
+        public async Task<bool> SetColumnDataAsync(int datasetId, int columnNumber, List<DataRecordDto> recordDtos)
+        {
+            Container container = _cosmosDbContext.Database.GetCosmosClient()
+                .GetContainer(_cosmosDbContext.Database.GetCosmosDatabaseId(), _cosmosDbContext.DataRecords.EntityType.GetContainer());
+
+            // Map DTOs to DataRecord objects
+            List<DataRecord> newRecords = recordDtos.Select(e => new DataRecord
+            {
+                Id = $"{datasetId}-{columnNumber}-{e.RecordNumber}",
+                DatasetId = datasetId,
+                ColumnNumber = columnNumber,
+                RecordNumber = e.RecordNumber,
+                Value = e.Value
+            }).ToList();
+
+            // Query existing records
+            var existingRecordsIterator = container.GetItemLinqQueryable<DataRecord>(true)
+                .Where(r => r.DatasetId == datasetId && r.ColumnNumber == columnNumber)
+                .ToFeedIterator();
+
+            List<DataRecord> existingRecords = new();
+            while (existingRecordsIterator.HasMoreResults)
+            {
+                var response = await existingRecordsIterator.ReadNextAsync();
+                existingRecords.AddRange(response.Resource);
+            }
+
+            // Delete existing records in parallel
+            var deleteTasks = existingRecords.Select(r =>
+                container.DeleteItemAsync<DataRecord>(r.Id, new PartitionKey(r.DatasetId))
+            );
+            await Task.WhenAll(deleteTasks);
+
+            // Throttle inserts using SemaphoreSlim
+            SemaphoreSlim throttler = new SemaphoreSlim(5); // max 5 concurrent inserts
+            List<Task> insertTasks = new();
+
+            foreach (var record in newRecords)
+            {
+                await throttler.WaitAsync();
+
+                insertTasks.Add(Task.Run(async () =>
+                {
+                    try
+                    {
+                        await container.CreateItemAsync(record, new PartitionKey(record.DatasetId));
+                    }
+                    catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
+                    {
+                        // Wait for the recommended retry time
+                        await Task.Delay(ex.RetryAfter ?? TimeSpan.FromSeconds(1));
+                        await container.CreateItemAsync(record, new PartitionKey(record.DatasetId));
+                    }
+                    finally
+                    {
+                        throttler.Release();
+                    }
+                }));
+            }
+
+            await Task.WhenAll(insertTasks);
+
+            return true;
+        }
+
+
 
         public async Task<string> GetAgentThreadAsync(int datasetId, string workflowStageName)
         {
-            WorkflowStage workflowStage = await _appDbContext.WorkflowStages.FirstOrDefaultAsync(e => e.WorkflowStageName == workflowStageName && e.DatasetId == datasetId) ?? throw new Exception("Error finding workflow");
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            WorkflowStage workflowStage = await dbContext.WorkflowStages.FirstOrDefaultAsync(e => e.WorkflowStageName == workflowStageName && e.DatasetId == datasetId) ?? throw new Exception("Error finding workflow");
             return workflowStage.AzureAgentThreadId ?? throw new Exception("Agent Thread ID is not set");
         }
 
         public async Task<List<string>> GetWorkflowStagesNames()
         {
-            List<string> names = await _appDbContext.WorkflowStagesNames.Select(e => e.WorkflowStageName).ToListAsync();
+            using var scope = _scopeFactory.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            List<string> names = await dbContext.WorkflowStagesNames.Select(e => e.WorkflowStageName).ToListAsync();
             return names;
         }
     }

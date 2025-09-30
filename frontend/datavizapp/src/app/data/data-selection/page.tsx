@@ -10,6 +10,7 @@ import { useSession } from "next-auth/react";
 import { ColumnData, DataFrame, mapDataFrameToColumnData, useLoadDataFrame } from "@/lib/hooks/cleaningHooks";
 import { ColumnProfile } from "../pipeline/profiling/components/CarouselItem";
 import { Dataset, UserDatasetsDto } from "@/lib/dataset";
+import pako from "pako";
 
 // Create Dataset object in DB
 const createDataset = async (
@@ -18,18 +19,22 @@ const createDataset = async (
   dataFrame: DataFrame,
   datasetName: string
 ) => {
+
   const dataset = await fetchData<Dataset>(
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Content-Encoding": "gzip"
       },
-      body: JSON.stringify({
-        userId: userEmail,
-        columns: columns,
-        datasetName: datasetName
-      }),
+      body: new Blob([
+        pako.gzip(JSON.stringify({
+          userId: userEmail,
+          columns: columns,
+          datasetName: datasetName,
+        }))
+      ]),
     }
   );
 
@@ -38,20 +43,25 @@ const createDataset = async (
     dataFrame
   );
 
-  await Promise.all(
-    columnDataArr.map((columnData) =>
+  const batchSize = 500;
+  const promises: Promise<any>[] = [];
+  for (let i = 0; i < columnDataArr.length; i += batchSize) {
+    const batch = columnDataArr.slice(i, i + batchSize);
+    promises.push(
       fetchData(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumnData`,
+        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumnDataBatch`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
+            "Content-Encoding": "gzip"
           },
-          body: JSON.stringify(columnData),
+          body: new Blob([pako.gzip(JSON.stringify({ columnDataList: batch }))]),
         }
       )
-    )
-  );
+    );
+  }
+  await Promise.all(promises);
 
   return dataset.datasetId;
 }
