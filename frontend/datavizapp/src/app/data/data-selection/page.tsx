@@ -204,14 +204,14 @@ export default function DatasetSelectionPage() {
 
   // ---- Render ---- //
   return (
-    // Main Grid Container: 2/3 for the left side, 1/3 for the right side
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+    // Main Container: Vertical flex layout
+    <div className="flex flex-col gap-2">
       
-      {/* --- Left Column (spans 2/3 of the width) --- */}
-      <div className="lg:col-span-2 flex flex-col gap-2">
-
+      {/* --- Top Section: Contains Upload and History --- */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        
         {/* Top-Left Card: Upload Section */}
-        <div className="card rounded-xl p-8">
+        <div className="lg:col-span-2 card rounded-xl p-6">
           <div className="upload-options mb-6">
              <div className="flex justify-center gap-4 mb-6">
               <button type="button" className={`px-4 py-2 rounded-xl font-semibold transition-colors ${ uploadSource === "local" ? "bg-purple-600 text-white" : "bg-slate-200 text-slate-700"}`} onClick={() => handleUploadSourceChange("local")}>
@@ -224,7 +224,7 @@ export default function DatasetSelectionPage() {
           </div>
 
           {uploadSource === "local" && (
-            <div className="upload-zone rounded-lg p-12 text-center border border-dashed border-slate-300 cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <div className="upload-zone rounded-lg p-12 text-center border-2 border-dashed border-purple-400 bg-slate-50 cursor-pointer transition-colors hover:border-purple-500 hover:bg-slate-100" onClick={() => fileInputRef.current?.click()}>
               <svg className="w-16 h-16 text-purple-500 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
               <p className="text-lg mb-2 text-slate-800">Drag and drop your CSV file here</p>
               <p className="text-slate-500 mb-4">or click to browse</p>
@@ -245,66 +245,66 @@ export default function DatasetSelectionPage() {
           )}
         </div>
 
-        {/* Bottom-Left Card: Preview Section (Only shows when a file is selected) */}
-        {showPreview && (
-          <div className="card rounded-xl p-8">
-            <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset Preview</h2>
-            <div className="overflow-x-auto border border-slate-200 rounded-xl">
-              <table className="w-full table-auto text-left">
-                <thead className="bg-slate-100">
-                  <tr>
-                    {previewHeaders.map((h, i) => (
-                      <th key={i} className="px-4 py-2 whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewData.slice(0, 5).map((row, i) => (
-                    <tr key={i} className="border-t">
-                      {row.map((cell, j) => (
-                        <td key={j} className="px-4 py-2 whitespace-nowrap">{cell}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <button type="button" className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl glow font-semibold disabled:opacity-50" onClick={handleConfirm} disabled={loading || !dataFrame}>
-              {loading ? "Loading..." : "Continue to Profile"}
-            </button>
+        {/* Top-Right Card: Dataset History */}
+        <div className="lg:col-span-1 card rounded-xl p-6">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset History</h2>
+          <div className="h-[350px] overflow-y-auto pr-2">
+              <div className="space-y-3">
+              {datasets.map((dataset, index) => (
+                  <button
+                  key={dataset.datasetId}
+                  onClick={() => { /* TODO: Implement logic to load this dataset for profiling */ }}
+                  className={`w-full flex items-center gap-3 rounded-xl p-4 transition text-left ${
+                      index === 0
+                      ? "border border-purple-300 bg-purple-50 hover:bg-purple-100"
+                      : "border border-slate-200 bg-white hover:bg-slate-50"
+                  }`}
+                  >
+                  <div className="flex-1">
+                      <p className={`font-semibold ${index === 0 ? "text-purple-800" : "text-slate-800"}`}>
+                      {dataset.datasetName || "Untitled Dataset"}
+                      </p>
+                      <p className="text-sm text-slate-600">ID: {dataset.datasetId}</p>
+                  </div>
+                  {index === 0 && (
+                      <span className="px-2 py-1 text-xs rounded-full bg-purple-200 text-purple-700">Latest</span>
+                  )}
+                  </button>
+              ))}
+              </div>
           </div>
-        )}
-      </div>
-
-      {/* --- Right Column (spans 1/3 of the width) --- */}
-      <div className="lg:col-span-1 card rounded-xl p-8">
-        <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset History</h2>
-        <div className="max-h-[80vh] overflow-y-auto pr-2">
-            <div className="space-y-3">
-            {datasets.map((dataset, index) => (
-                <button
-                key={dataset.datasetId}
-                onClick={() => { /* TODO: Implement logic to load this dataset for profiling */ }}
-                className={`w-full flex items-center gap-3 rounded-xl p-4 transition text-left ${
-                    index === 0
-                    ? "border border-purple-300 bg-purple-50 hover:bg-purple-100"
-                    : "border border-slate-200 bg-white hover:bg-slate-50"
-                }`}
-                >
-                <div className="flex-1">
-                    <p className={`font-semibold ${index === 0 ? "text-purple-800" : "text-slate-800"}`}>
-                    {dataset.datasetName || "Untitled Dataset"}
-                    </p>
-                    <p className="text-sm text-slate-600">ID: {dataset.datasetId}</p>
-                </div>
-                {index === 0 && (
-                    <span className="px-2 py-1 text-xs rounded-full bg-purple-200 text-purple-700">Latest</span>
-                )}
-                </button>
-            ))}
-            </div>
         </div>
       </div>
+
+      {/* --- Bottom Section: Preview (Only shows when a file is selected) --- */}
+      {showPreview && (
+        <div className="card rounded-xl p-6">
+          <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset Preview</h2>
+          <div className="overflow-x-auto border border-slate-200 rounded-xl">
+            <table className="w-full table-auto text-left">
+              <thead className="bg-slate-100">
+                <tr>
+                  {previewHeaders.map((h, i) => (
+                    <th key={i} className="px-4 py-2 whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {previewData.slice(0, 5).map((row, i) => (
+                  <tr key={i} className="border-t">
+                    {row.map((cell, j) => (
+                      <td key={j} className="px-4 py-2 whitespace-nowrap">{cell}</td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <button type="button" className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl glow font-semibold disabled:opacity-50" onClick={handleConfirm} disabled={loading || !dataFrame}>
+            {loading ? "Loading..." : "Continue to Profile"}
+          </button>
+        </div>
+      )}
 
       {/* Loading Overlay */}
       {loading && (
