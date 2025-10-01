@@ -13,7 +13,7 @@ import {
   mapDataFrameToColumnData,
   useLoadDataFrame,
 } from "@/lib/hooks/cleaningHooks";
-import { ColumnProfile } from "../pipeline/profiling/components/CarouselItem";
+import { ColumnProfile } from "@/app/components/input/Fieldset";
 import pako from "pako";
 
 // Create Dataset object in DB

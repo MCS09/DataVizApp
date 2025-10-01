@@ -1,7 +1,6 @@
 "use client";
 
 import { ChatBubble, ChatBubbleParam } from "@/app/components/ai/ChatBubble";
-import Button from "@/app/components/input/Button";
 import { AGENT_ENUM_BY_ROUTE, ROUTES, WORKFLOW_STAGES_NAMES_BY_ROUTE } from "@/constants/routes";
 import { fetchData, safeJsonParse } from "@/lib/api";
 import useStore from "@/lib/store";
@@ -91,7 +90,7 @@ const getAgentIdByPage = (route: string): number => {
   }
 }
 
-// NEW: Define prompts for each specific page/route
+// Define prompts for each specific page/route
 const SUGGESTION_PROMPTS_BY_ROUTE: { [key: string]: string[] } = {
   [ROUTES.datasetProfilingPage]: [
     "Summarize each column's role",
@@ -272,50 +271,62 @@ export default function DataPagesLayout({
   }, [chatHistory, suggestionPrompts, pathname]);
 
   return (
-    <div className="flex">
-      <div
-        className="ag-theme-alpine"
-        style={{ height: "600px", width: "60%" }}
-      >
+    <div className="flex gap-4" style={{ height: "calc(100vh - 12rem)" }}>
+      <div className="w-3/5 flex flex-col bg-base-100 rounded-lg shadow">
         {children}
       </div>
-      <div
-        style={{ width: "40%", backgroundColor: "lightgray" }}
-        className="h-[600px] flex flex-col"
-      >
+      <div className="w-2/5 flex flex-col bg-base-200 rounded-lg shadow-inner">
         {/* Chat history area */}
-        <div 
-          ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-4 bg-base-200 rounded-lg">
-
+        <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-4">
           {dynamicContent}
         </div>
 
         {/* Input bar at the bottom */}
-        <div className="p-2 bg-base-100">
-          <input
-            type="text"
-            placeholder="Type here"
-            className="input w-10/12"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-          />
-          {!sentPrompt && 
-          <Button
-            label="Send"
-            className="btn w-2/12"
-            action={async () => {
-              if (prompt.trim()) {
-                setSentPrompt(prompt);
-                setChatHistory((prev) => [
-                  ...prev,
-                  { message: prompt, role: "user", isStart: false },
-                ]);
-                setPrompt("");
-              }
-            }}
-          />
-          }
+        <div className="p-4 bg-base-200 border-t border-base-300">
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Type your message..."
+              className="input input-bordered w-full"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !sentPrompt) {
+                  if (prompt.trim()) {
+                    setSentPrompt(prompt);
+                    setChatHistory((prev) => [
+                      ...prev,
+                      { message: prompt, isStart: false },
+                    ]);
+                    setPrompt("");
+                  }
+                }
+              }}
+            />
+            <button
+              className="btn bg-purple-600 hover:bg-purple-700 text-white disabled:opacity-50 rounded-xl transition-colors"
+              disabled={!!sentPrompt || !prompt.trim()}
+              onClick={() => {
+                if (prompt.trim()) {
+                  setSentPrompt(prompt);
+                  setChatHistory((prev) => [
+                    ...prev,
+                    { message: prompt, isStart: false },
+                  ]);
+                  setPrompt("");
+                }
+              }}
+            >
+              {/* This SVG creates a modern "send" paper plane icon */}
+              <svg 
+                xmlns="http://www.w3.org/2000/svg" 
+                viewBox="0 0 24 24" 
+                fill="currentColor" 
+                className="w-6 h-6">
+                <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
