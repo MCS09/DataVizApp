@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import ColumnProfileList from "./components/ColumnProfileList";
-import { ColumnProfile } from "@/app/components/input/Fieldset";
+import { CarouselItem, ColumnProfile } from "./components/CarouselItem";
 import { fetchData, postData, safeJsonParse } from "@/lib/api";
 import { useColumns, Column } from "@/lib/hooks/useColumns";
 import useStore from "@/lib/store";
@@ -69,6 +68,7 @@ export default function ProfilingPage() {
         }));
         return cols;
       }
+      // save datasetId to
     };
 
     const getColumnsAI = () => {
@@ -93,29 +93,38 @@ export default function ProfilingPage() {
   }, [sharedState.aiResponseContext, datasetId]);
 
   return (
-    <div className="flex flex-col h-full">
-      <ColumnProfileList columns={columns} updateColumn={updateColumn} />
-
-      <div className="flex justify-end p-4 border-t border-base-300">
-        <Button
-          label={"Continue to Cleaning"}
-          className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl glow font-semibold disabled:opacity-50"
-          action={async () => {
-            if (!datasetId) return; // Guard clause
-            const res = await saveColumns({
-              datasetId: datasetId,
-              newColumns: columns.map((e) => ({
-                columnNumber: e.columnProfile.columnNumber,
-                columnName: e.columnProfile.columnName,
-                columnDescription: e.columnProfile.columnDescription,
-                dataType: e.columnProfile.dataType,
-                relationship: e.columnProfile.relationship,
-              })),
-            });
-            if (res) router.push("/data/pipeline/visualization"); 
-          }}
-        />
-      </div>
+    <div style={{ overflowX: "auto" }}>
+      {columns && (
+        <div className="carousel">
+          {columns.map((column, index) => (
+            <CarouselItem
+              key={index}
+              columnHeader={column.columnHeader}
+              columnProfile={column.columnProfile}
+              updateColumn={(updatedColumn) =>
+                updateColumn(index, updatedColumn)
+              }
+            />
+          ))}
+        </div>
+      )}
+      <Button
+        label={"Next"}
+        action={async () => {
+          // save the columns to server
+          const res = await saveColumns({
+            datasetId: datasetId!,
+            newColumns: columns.map((e) => ({
+              columnNumber: e.columnProfile.columnNumber,
+              columnName: e.columnProfile.columnName,
+              columnDescription: e.columnProfile.columnDescription,
+              dataType: e.columnProfile.dataType,
+              relationship: e.columnProfile.relationship,
+            })),
+          });
+          if (res) router.push("/data/pipeline/visualization");
+        }}
+      />
     </div>
   );
 }
