@@ -43,14 +43,21 @@ export function useVegaSpec({ width, ratio, theme, maxWidth, maxHeight }: Args) 
       $schema: "https://vega.github.io/schema/vega-lite/v5.json",
       width: clampedWidth,
       ...(height ? { height } : {}),
-      encoding: {
-        ...baseSpec.encoding,
+      // encoding: {
+      //   ...baseSpec.encoding,
+      //   color: {
+      //     field: colorField,
+      //     type: "nominal",
+      //     scale: { scheme: theme },
+      //   },
+      // },
+       encoding: {
+        ...(baseSpec.encoding ?? {}), // keep all existing encodings
         color: {
-          field: colorField,
-          type: "nominal",
-          scale: { scheme: theme },
-        },
-      },
+          ...(baseSpec.encoding && "color" in baseSpec.encoding ? (baseSpec.encoding.color as object) : {}), // keep existing color field/type if exists
+          scale: { scheme: theme },            // override/add just the scheme
+        }
+      }
     };
   }, [baseSpec, clampedWidth, height, theme]);
 
