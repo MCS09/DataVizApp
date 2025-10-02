@@ -1,0 +1,106 @@
+' ===========================
+' Combined Cleaning Diagrams
+' ===========================
+
+' --- 1. Sequence Diagram (Apply Transformation Flow) ---
+@startuml CleaningSequence
+actor User
+User -> CleaningToolbar: Select operation + params
+User -> CleaningToolbar: Click "Apply"
+CleaningToolbar -> CleaningContext: onApply(operation, options)
+
+CleaningContext -> PyEngine: executeEmbeddedCode(code, payload)
+PyEngine --> CleaningContext: transformed records
+
+CleaningContext -> CleaningGrid: Update rows & matrix
+CleaningContext -> TransformationHistory: Append history entry
+CleaningContext -> CleaningPage: Mark dirty (unsaved)
+
+User -> CleaningToolbar: Click "Save"
+CleaningToolbar -> CleaningContext: onSave()
+CleaningContext -> API: setDatasetMatrix(payload)
+API --> CleaningContext: Success
+CleaningContext -> UI: Clear dirty flag, reset baseline
+@enduml
+
+' --- 2. Class Diagram ---
+@startuml CleaningClasses
+class CleaningPage {
+  + CleaningProvider
+  + CleaningView
+}
+
+class CleaningProvider {
+  - datasetId: number
+  - columnNumber: number
+  - matrixColumns: DatasetMatrixColumn[]
+  - matrixRows: DatasetMatrixRow[]
+  - rows: CleaningRow[]
+  - baselineRows: CleaningRow[]
+  - history: HistoryRecord[]
+  - dirty: boolean
+  - isSaving: boolean
+  + handleColumnChange()
+  + handleCellChange()
+  + handleApplyTransformation()
+  + handleUndo()
+  + handleReset()
+  + handleSave()
+}
+
+class CleaningGrid {
+  + columns: DatasetMatrixColumn[]
+  + rows: DatasetMatrixRow[]
+  + selectedColumnNumber: number
+  + onCellValueChange()
+}
+
+class CleaningToolbar {
+  + disabled: boolean
+  + onApply()
+  + onReset()
+  + onSave()
+}
+
+class TransformationHistory {
+  + items: TransformationHistoryItem[]
+  + onUndo()
+}
+
+class Menu {
+  + list: string[]
+  + onClick()
+}
+
+class PyEngine {
+  + executeEmbeddedCode(code, payload)
+}
+
+class API {
+  + getDatasetMatrix()
+  + setDatasetMatrix()
+}
+
+CleaningPage --> CleaningProvider
+CleaningProvider --> CleaningGrid
+CleaningProvider --> CleaningToolbar
+CleaningProvider --> TransformationHistory
+CleaningToolbar --> CleaningProvider : "onApply / onSave / onReset"
+CleaningGrid --> CleaningProvider : "onCellValueChange"
+TransformationHistory --> CleaningProvider : "onUndo"
+CleaningProvider --> PyEngine : "executeEmbeddedCode"
+CleaningProvider --> API : "getDatasetMatrix, setDatasetMatrix"
+@enduml
+
+' --- 3. State Diagram (Dataset Lifecycle) ---
+@startuml CleaningStates
+[*] --> Idle
+
+Idle --> Editing : Load dataset + select column
+Editing --> Dirty : Cell change / Transformation applied
+Dirty --> Saved : Save successful
+Dirty --> Error : Save failed / Transformation error
+Saved --> Editing : Continue editing
+Error --> Editing : Fix error / retry
+@enduml
+
