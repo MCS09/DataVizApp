@@ -17,7 +17,7 @@ export default function NavBar() {
       <div className="flex-1"></div>
       <div className="flex gap-2">
         {isAuthenticated && <LogoutDialogButton />}
-        {showConsole && <Button label="Open Console" action={() => {router.push("/data")}} />}
+        {/* {showConsole && <Button label="Open Console" action={() => {router.push("/data")}} />} */}
       </div>
     </div>
   );
