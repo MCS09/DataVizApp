@@ -1,3 +1,4 @@
+/** header missing */
 ﻿"use client";
 
 import { useMemo, useState } from "react";
@@ -11,6 +12,12 @@ import {
   getOperationConfig,
 } from "./operationMetadata";
 
+/**
+ * Purpose: Define the props accepted by the cleaning toolbar.
+ * Params: None.
+ * Returns: Type shape listing callbacks and state flags.
+ * Steps: 1. Describe disabling conditions. 2. Provide apply/reset/save handlers. 3. Indicate persistence and dirty state.
+ */
 type CleaningToolbarProps = {
   disabled?: boolean;
   onApply: (operation: CleaningOperation, options?: CleaningOptions) => void;
@@ -20,6 +27,12 @@ type CleaningToolbarProps = {
   dirty?: boolean;
 };
 
+/**
+ * Purpose: Render toolbar controls for column cleaning operations.
+ * Params: Destructured CleaningToolbarProps with callbacks and flags.
+ * Returns: JSX.Element containing inputs and buttons.
+ * Steps: 1. Track local inputs for operations. 2. Guard button availability. 3. Invoke callbacks when actions are triggered.
+ */
 export default function CleaningToolbar({
   disabled,
   onApply,

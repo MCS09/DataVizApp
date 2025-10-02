@@ -1,13 +1,15 @@
 ﻿/**
- * pythonTransforms.ts
- *
- * Instead of embedding Python code in a string (which caused indentation issues),
- * we fetch the Python file from `/public/python/cleaning_transforms.py`.
+ * Purpose: Supply cleaning-related Python code and metadata helpers.
+ * Params: None.
+ * Returns: Exported loader function and type aliases.
+ * Steps: 1. Fetch the Python transform script. 2. Normalise whitespace for execution. 3. Declare supported operations and options.
  */
 
 /**
- * Loads the cleaning transform Python code as plain text.
- * @returns The Python source code from cleaningfunction.py
+ * Purpose: Retrieve the Python cleaning transforms from the public folder.
+ * Params: None.
+ * Returns: Promise<string> containing the script source.
+ * Steps: 1. Fetch the script file. 2. Normalise BOM and line endings. 3. Trim leading whitespace before returning.
  */
 export async function loadCleaningTransformCode(): Promise<string> {
   const res = await fetch("/python/cleaningfunction.py");
