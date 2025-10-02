@@ -42,6 +42,8 @@ export default function Page() {
   const [width, setWidth] = useState(600);
   const [ratio, setRatio] = useState<"original" | "16:9" | "4:3" | "1:1">("16:9");
   const [theme, setTheme] = useState<string>("tableau10");
+  const [error, setError] = useState<string | null>(null);
+
 
   // Render limits
   const MAX_WIDTH = 1000;
@@ -135,16 +137,18 @@ export default function Page() {
     }
 
   async function extendSpecWithData(datasetId:number,initialSpec: typeof spec): Promise<typeof spec> {
-    const columnData: ColumnData[] = [];
-    const feat = Object.keys(spec.data?.values?.[0] ?? {});
-  
-    const value = await valuesFromFeatures(datasetId, feat);
-    return {
-      ...initialSpec,
-      data: {
-        values: value // Use the fetched values here
-      }
-    };
+    try {
+      const feat = Object.keys(initialSpec.data?.values?.[0] ?? {});
+      if (feat.length === 0) throw new Error("No features selected for chart.");
+
+      const value = await valuesFromFeatures(datasetId, feat);
+      if (!value || value.length === 0) throw new Error("No matching data found in the database.");
+      return { ...initialSpec, data: { values: value } };
+    } catch (err: any) {
+      console.log("extendSpecWithData → datasetId:", datasetId, "features:", feat);
+      setError(err.message || "Failed to fetch data.");
+      throw err;
+    }
   }
 
   // build the promise once per change
@@ -169,9 +173,6 @@ export default function Page() {
 
 
   // function extendSpecWithData(initialSpec: typeof spec): typeof spec | null {return null}
-
-
-
   return (
     <div className="w-full h-screen flex justify-center items-center">
       <div className="w-full max-w-5xl flex flex-col gap-6 items-center justify-center">
@@ -187,8 +188,12 @@ export default function Page() {
         />
 
         {/* Chart */}
-        <ChartBox spec={resolvedSpec} onViewReady={(view) => (vegaRef.current = view)} />
+        {error ? (
+        <div className="text-red-500 font-semibold">{error}</div>
+      ) :
+             <ChartBox spec={resolvedSpec} onViewReady={(view) => (vegaRef.current = view)} />
 
+      }
         {/* Theme picker */}
         <ChartThemePicker
           themes={chartThemes}
