@@ -24,13 +24,13 @@ export default function ExportButtons({ getView }: Props) {
     <div className="flex gap-4 justify-center">
       <button
         onClick={() => handleExport("png")}
-        className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-500"
+        className="px-4 py-2 bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-semibold rounded-lg shadow-md hover:scale-105 hover:shadow-lg transition-all duration-200"
       >
         Export PNG
       </button>
       <button
         onClick={() => handleExport("svg")}
-        className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-500"
+        className="px-4 py-2 bg-gradient-to-r from-green-600 to-teal-500 text-white font-semibold rounded-lg shadow-md hover:scale-105 hover:shadow-lg transition-all duration-200"
       >
         Export SVG
       </button>
