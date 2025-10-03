@@ -3,6 +3,7 @@ import { create } from 'zustand';
 export interface SharedState {
   aiContext: string;
   aiResponseContext: string;
+  cleaningScanStatus: 'idle' | 'running' | 'ready' | 'failed';
 }
 
 // Define the store's state and methods
@@ -12,7 +13,7 @@ interface Store {
 }
 
 const useStore = create<Store>((set) => ({
-  sharedState: { aiContext: '', aiResponseContext: ''},
+  sharedState: { aiContext: '', aiResponseContext: '', cleaningScanStatus: 'idle' },
   updateState: (newState) => set((state) => ({
     sharedState: { ...state.sharedState, ...newState },
   })),

@@ -40,3 +40,18 @@ export type DatasetMatrix = {
   headers: DatasetMatrixColumn[];
   rows: DatasetMatrixRow[];
 };
+/**
+ * Purpose: Describe risk metadata returned by the cleaning agent for individual cells.
+ * Params: None.
+ * Returns: Exported types for downstream consumers.
+ * Steps: 1. Enumerate supported severities. 2. Provide a payload structure. 3. Offer a map shape for fast lookup.
+ */
+export type RiskLevel = "high" | "medium" | "low";
+
+export type CellRisk = {
+  level: RiskLevel;
+  reason?: string;
+};
+
+export type CellRiskMap = Record<string, CellRisk>;
+

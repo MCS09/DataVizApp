@@ -7,9 +7,10 @@
  * Steps: 1. Wrap the view with CleaningProvider. 2. Render the cleaning UI through CleaningView. 3. Export the route component for Next.js routing.
  */
 
-import { useMemo } from "react";
+import { useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Button from "@/app/components/input/Button";
+import useStore from "@/lib/store";
 
 import CleaningGrid from "./components/CleaningGrid";
 import CleaningToolbar from "./components/CleaningToolbar";
@@ -43,6 +44,10 @@ function CleaningView() {
     pyLoading,
     pyError,
     isBusy,
+    cellRisks,
+    riskSummary,
+    clearCellRisks,
+    scanStatus,
     handleColumnChange,
     handleCellChange,
     handleApplyTransformation,
@@ -50,11 +55,21 @@ function CleaningView() {
     handleSave,
     handleUndo,
   } = useCleaningContext();
+  const { updateState } = useStore();
 
   const historyItems = useMemo<TransformationHistoryItem[]>(
     () => history.map(({ id, label, timestamp }) => ({ id, label, timestamp })),
     [history]
   );
+  const riskTotal = riskSummary.high + riskSummary.medium + riskSummary.low;
+  const hasRiskHighlights = Object.keys(cellRisks).length > 0;
+  const showDetectionScreen = scanStatus === 'running' && !hasRiskHighlights;
+  const handleRetryScan = useCallback(() => {
+    if (scanStatus === 'failed') {
+      updateState({ cleaningScanStatus: 'idle' });
+    }
+  }, [scanStatus, updateState]);
+
 
   if (datasetId == null) {
     return (
@@ -70,6 +85,17 @@ function CleaningView() {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-base-content/70">Loading column data...</p>
+      </div>
+    );
+  }
+
+  if (showDetectionScreen) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+        <span className="loading loading-spinner loading-lg" />
+        <div className="max-w-md text-base-content/70">
+          Running automated data-quality scan for this dataset. Hang tight while we identify risky cells.
+        </div>
       </div>
     );
   }
@@ -118,12 +144,39 @@ function CleaningView() {
         </div>
       )}
 
+      {scanStatus === 'failed' && !hasRiskHighlights && (
+        <div className="alert alert-warning flex items-center justify-between gap-4 text-sm">
+          <span>Automatic risk detection could not complete. You can still inspect the column manually or ask the assistant for help.</span>
+          <button type="button" className="btn btn-xs btn-outline" onClick={handleRetryScan}>Retry scan</button>
+        </div>
+      )}
+
+      {riskTotal > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg bg-base-200/70 p-3 text-sm">
+          <span className="font-semibold">AI risk flags</span>
+          {riskSummary.high > 0 && (
+            <span className="badge badge-error badge-outline">{riskSummary.high} high</span>
+          )}
+          {riskSummary.medium > 0 && (
+            <span className="badge badge-warning badge-outline">{riskSummary.medium} medium</span>
+          )}
+          <button
+            type="button"
+            className="btn btn-xs btn-ghost"
+            onClick={clearCellRisks}
+          >
+            Clear highlights
+          </button>
+        </div>
+      )}
+
       <CleaningGrid
         columns={matrixColumns}
         rows={matrixRows}
         selectedColumnNumber={columnNumber}
         onCellValueChange={handleCellChange}
         loading={matrixLoading || pyLoading}
+        cellRisks={cellRisks}
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
@@ -158,4 +211,3 @@ export default function CleaningPage() {
     </CleaningProvider>
   );
 }
-

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { ChatBubble, ChatBubbleParam } from "@/app/components/ai/ChatBubble";
 import Button from "@/app/components/input/Button";
@@ -92,6 +92,35 @@ const getAgentIdByPage = (route: string): number => {
 }
 
 // NEW: Define prompts for each specific page/route
+const CLEANING_AUTOSCAN_PROMPT = "Review the dataset provided in workingData and perform a data-quality risk scan across the current column. Respond with riskAnnotations (recordNumber, optional columnNumber, severity as 'high'|'medium'|'low', and reason) highlighting up to 100 of the riskiest records, and include a concise textResponse summary.";
+
+const MAX_AUTOSCAN_SAMPLE = 200;
+
+const buildWorkingDataPayload = (raw: string) => {
+  if (!raw) {
+    return raw;
+  }
+
+  const parsed = safeJsonParse<{ dataRecords?: Array<{ recordNumber: number; value: string }> }>(raw);
+  if (parsed && Array.isArray(parsed.dataRecords)) {
+    const truncatedRecords = parsed.dataRecords.slice(0, MAX_AUTOSCAN_SAMPLE);
+    try {
+      return JSON.stringify({
+        ...parsed,
+        dataRecords: truncatedRecords,
+        __autoscan: {
+          truncated: parsed.dataRecords.length > truncatedRecords.length,
+          originalCount: parsed.dataRecords.length,
+        },
+      });
+    } catch (error) {
+      console.warn('Failed to build working data payload', error);
+    }
+  }
+
+  return raw;
+};
+
 const SUGGESTION_PROMPTS_BY_ROUTE: { [key: string]: string[] } = {
   [ROUTES.datasetProfilingPage]: [
     "Summarize each column's role",
@@ -100,10 +129,10 @@ const SUGGESTION_PROMPTS_BY_ROUTE: { [key: string]: string[] } = {
     "Find possible primary keys",
   ],
   [ROUTES.datasetCleaningPage]: [
-    "Identify missing values", 
-    "Suggest cleaning steps for the current column", 
-    "Detect outliers in this column",
-    "Explain recent cleaning changes"
+    "Audit this column for nulls or duplicates and respond with riskAnnotations for high-risk cells.",
+    "Summarize the most critical data-quality risks in the selected column and propose next steps.",
+    "Flag values that may be inconsistent with the column's type or expected distribution.",
+    "Explain how recent cleaning changes impacted overall data integrity."
   ],
   [ROUTES.datasetVisualizationPage]: [
     // TODO: Add prompts
@@ -122,6 +151,7 @@ export default function DataPagesLayout({
   const [threadId, setThreadId] = useState("");
   const pathname = usePathname();
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const autoDetectionKeyRef = useRef<string | null>(null);
   const { sharedState, updateState } = useStore();
   const [datasetId, setDatasetId] = useState<number>();
   const [dynamicContent, setDynamicContent] = useState<JSX.Element | null>(null);
@@ -151,6 +181,74 @@ export default function DataPagesLayout({
       setThreadId(res);
     })();
   }, [datasetId, pathname]);
+
+  useEffect(() => {
+    autoDetectionKeyRef.current = null;
+  }, [datasetId]);
+
+  useEffect(() => {
+    if (pathname !== ROUTES.datasetCleaningPage) {
+      return;
+    }
+    if (!datasetId || !threadId) {
+      return;
+    }
+    if (!sharedState.aiContext || sharedState.aiContext.trim().length === 0) {
+      return;
+    }
+    if (sharedState.cleaningScanStatus !== 'idle') {
+      return;
+    }
+
+    const agentId = getAgentIdByPage(pathname);
+    if (agentId === -1) {
+      return;
+    }
+
+    const key = `${datasetId}:${threadId}`;
+    if (autoDetectionKeyRef.current === key) {
+      return;
+    }
+    autoDetectionKeyRef.current = key;
+
+    updateState({ cleaningScanStatus: 'running' });
+
+    const runCleaningScan = async () => {
+      const workingDataPayload = buildWorkingDataPayload(sharedState.aiContext);
+      const engineeredPrompt: UserPrompt = {
+        workingData: workingDataPayload,
+        prompt: CLEANING_AUTOSCAN_PROMPT,
+      };
+
+      const success = await promptAgent({
+        threadId,
+        agentId,
+        text: JSON.stringify(engineeredPrompt),
+      });
+
+      if (!success) {
+        updateState({ cleaningScanStatus: 'failed' });
+        autoDetectionKeyRef.current = null;
+        return;
+      }
+
+      setChatHistory([]);
+    };
+
+    runCleaningScan().catch((error) => {
+      console.error('Automated cleaning scan failed', error);
+      updateState({ cleaningScanStatus: 'failed' });
+      autoDetectionKeyRef.current = null;
+    });
+  }, [
+    datasetId,
+    pathname,
+    sharedState.aiContext,
+    sharedState.cleaningScanStatus,
+    threadId,
+    updateState,
+    setChatHistory,
+  ]);
 
   useEffect(() => {
     const fetchChatHistory = async () => {
@@ -219,8 +317,9 @@ export default function DataPagesLayout({
       const agentId = getAgentIdByPage(pathname);
 
       if ((agentId!= -1) && sentPrompt){
+        const workingDataPayload = buildWorkingDataPayload(sharedState.aiContext);
         const engineeredPrompt: UserPrompt = {
-          workingData: sharedState.aiContext,
+          workingData: workingDataPayload,
           prompt: sentPrompt
         };
         const success = await promptAgent({threadId, agentId, text: JSON.stringify(engineeredPrompt)})

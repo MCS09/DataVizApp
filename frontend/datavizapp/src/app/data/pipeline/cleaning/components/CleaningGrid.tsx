@@ -11,7 +11,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { AgGridReact } from "ag-grid-react";
 import type { ColDef } from "ag-grid-community";
 
-import type { DatasetMatrixColumn, DatasetMatrixRow } from "../types";
+import type { DatasetMatrixColumn, DatasetMatrixRow, CellRiskMap } from "../types";
 
 /**
  * Purpose: Describe the props consumed by the cleaning grid.
@@ -25,6 +25,7 @@ export type CleaningGridProps = {
   selectedColumnNumber: number | null;
   onCellValueChange: (recordNumber: number, columnNumber: number, value: string) => void;
   loading?: boolean;
+  cellRisks?: CellRiskMap;
 };
 
 export type CleaningRow = {
@@ -44,6 +45,7 @@ export default function CleaningGrid({
   selectedColumnNumber,
   onCellValueChange,
   loading,
+  cellRisks,
 }: CleaningGridProps) {
   const gridRef = useRef<AgGridReact<Record<string, unknown>>>(null);
 
@@ -56,6 +58,19 @@ export default function CleaningGrid({
       width: 120,
       pinned: "left",
       suppressMovable: true,
+    };
+
+    const resolveRiskColor = (level: string) => {
+      switch (level) {
+        case "high":
+          return "rgba(248, 113, 113, 0.35)"; // tailwind red-400 @ ~35%
+        case "medium":
+          return "rgba(250, 204, 21, 0.45)"; // tailwind yellow-400 @ ~45%
+        case "low":
+          return undefined;
+        default:
+          return undefined;
+      }
     };
 
     const dynamicColumns: ColDef[] = columns.map((column) => {
@@ -73,11 +88,36 @@ export default function CleaningGrid({
             ? "bg-primary/10 font-medium"
             : undefined,
         headerClass: selectedColumnNumber === column.columnNumber ? "bg-primary/20" : undefined,
+        cellStyle: (params) => {
+          const recordNumber = Number(
+            params.data?.recordNumber ?? params.node?.data?.recordNumber ?? Number.NaN
+          );
+          if (!Number.isFinite(recordNumber)) {
+            return undefined;
+          }
+          const riskKey = `${column.columnNumber}:${recordNumber}`;
+          const risk = cellRisks?.[riskKey];
+          if (!risk) {
+            return undefined;
+          }
+          const backgroundColor = resolveRiskColor(risk.level);
+          return backgroundColor ? { backgroundColor } : undefined;
+        },
+        tooltipValueGetter: (params) => {
+          const recordNumber = Number(
+            params.data?.recordNumber ?? params.node?.data?.recordNumber ?? Number.NaN
+          );
+          if (!Number.isFinite(recordNumber)) {
+            return undefined;
+          }
+          const riskKey = `${column.columnNumber}:${recordNumber}`;
+          return cellRisks?.[riskKey]?.reason;
+        },
       } satisfies ColDef;
     });
 
     return [baseColumn, ...dynamicColumns];
-  }, [columns, selectedColumnNumber]);
+  }, [columns, selectedColumnNumber, cellRisks]);
 
   const rowData = useMemo(() => {
     return rows.map((row) => {
@@ -106,6 +146,11 @@ export default function CleaningGrid({
     gridRef.current?.api?.sizeColumnsToFit();
   }, [columns, rowData.length]);
 
+  useEffect(() => {
+    if (!cellRisks) return;
+    gridRef.current?.api?.refreshCells({ force: true });
+  }, [cellRisks]);
+
   return (
     <div className="relative h-[560px] w-full overflow-hidden rounded-lg border border-base-300">
       <div className="ag-theme-alpine h-full w-full">
@@ -119,8 +164,12 @@ export default function CleaningGrid({
           animateRows
           stopEditingWhenCellsLoseFocus
           singleClickEdit
+          enableBrowserTooltips
+          tooltipShowDelay={0}
           onCellValueChanged={(event) => {
-            const recordNumber = Number(event.data?.recordNumber ?? event.node?.data?.recordNumber ?? 0);
+            const recordNumber = Number(
+              event.data?.recordNumber ?? event.node?.data?.recordNumber ?? 0
+            );
             const colId = event.column?.getColId() ?? event.colDef.colId;
             if (!colId || !colId.startsWith("col_")) {
               return;

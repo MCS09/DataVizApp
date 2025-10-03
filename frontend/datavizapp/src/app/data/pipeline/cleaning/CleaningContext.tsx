@@ -10,6 +10,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import useStore from "@/lib/store";
+import type { SharedState } from "@/lib/store";
+import type { AIResponse } from "../layout";
 import { safeJsonParse } from "@/lib/api";
 import { usePyFunctions, ColumnData } from "@/lib/hooks/cleaningHooks";
 import {
@@ -22,7 +24,7 @@ import type { ColumnProfile } from "@/app/data/pipeline/profiling/components/Car
 import type { CleaningRow } from "./components/CleaningGrid";
 import type { TransformationHistoryItem } from "./components/TransformationHistory";
 import { getDatasetMatrix, setDatasetMatrix } from "./api";
-import type { DatasetMatrixColumn, DatasetMatrixRow } from "./types";
+import type { DatasetMatrixColumn, DatasetMatrixRow, CellRiskMap, RiskLevel } from "./types";
 
 const mapRecordsToRows = (records: ColumnData["dataRecords"]): CleaningRow[] =>
   records
@@ -49,6 +51,32 @@ type HistoryRecord = TransformationHistoryItem & {
   operation: CleaningOperation;
   options?: CleaningOptions;
 };
+type RiskSummary = {
+  high: number;
+  medium: number;
+  low: number;
+};
+
+type CleaningAgentPayload = {
+  datasetId?: number;
+  columnNumber?: number;
+  riskAnnotations?: Array<{
+    recordNumber: number;
+    columnNumber?: number;
+    severity: string;
+    reason?: string;
+  }>;
+  updatedColumn?: {
+    columnNumber: number;
+    dataRecords: ColumnData["dataRecords"];
+  };
+};
+
+const RISK_LEVELS: RiskLevel[] = ["high", "medium", "low"];
+const RISK_LEVEL_SET = new Set<RiskLevel>(RISK_LEVELS);
+
+const makeCellRiskKey = (columnNumber: number, recordNumber: number) =>
+  `${columnNumber}:${recordNumber}`;
 
 type CleaningContextValue = {
   datasetId: number | null;
@@ -80,6 +108,10 @@ type CleaningContextValue = {
   handleUndo: (id: string) => void;
   handleReset: () => void;
   handleSave: () => Promise<void>;
+  cellRisks: CellRiskMap;
+  riskSummary: RiskSummary;
+  clearCellRisks: () => void;
+  scanStatus: SharedState['cleaningScanStatus'];
   setLocalError: (value: string | null) => void;
 };
 
@@ -92,7 +124,7 @@ const CleaningContext = createContext<CleaningContextValue | undefined>(undefine
  * Steps: 1. Initialise shared state and hooks. 2. Load dataset information and keep local caches. 3. Expose handlers for grid interactions and persistence.
  */
 export function CleaningProvider({ children }: { children: ReactNode }) {
-  const { updateState } = useStore();
+  const { sharedState, updateState } = useStore();
   const { executeEmbeddedCode, loading: pyLoading, error: pyError, isReady } = usePyFunctions();
 
   const [datasetId, setDatasetId] = useState<number | null>(null);
@@ -116,8 +148,10 @@ export function CleaningProvider({ children }: { children: ReactNode }) {
   const [localError, setLocalError] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [cellRisks, setCellRisks] = useState<CellRiskMap>({});
 
   const [pendingAiContext, setPendingAiContext] = useState<string | null>(null);
+  const lastProcessedAiResponseRef = useRef<string | null>(null);
   const lastAiContextRef = useRef<string | null>(null);
 
   /**
@@ -145,6 +179,108 @@ const scheduleAiContextUpdate = useCallback((value: string) => {
     updateState({ aiContext: pendingAiContext });
     setPendingAiContext(null);
   }, [pendingAiContext, updateState]);
+  useEffect(() => {
+    const rawResponse = sharedState.aiResponseContext;
+    if (!rawResponse) {
+      return;
+    }
+
+    if (rawResponse === lastProcessedAiResponseRef.current) {
+      return;
+    }
+    lastProcessedAiResponseRef.current = rawResponse;
+
+    const envelope = safeJsonParse<AIResponse<string>>(rawResponse);
+    if (!envelope?.updatedData) {
+      return;
+    }
+
+    const payload = safeJsonParse<CleaningAgentPayload>(envelope.updatedData);
+    if (!payload) {
+      return;
+    }
+
+    if (
+      payload.datasetId != null &&
+      datasetId != null &&
+      payload.datasetId !== datasetId
+    ) {
+      return;
+    }
+
+    const annotations = payload.riskAnnotations;
+    if (!annotations) {
+      if (sharedState.cleaningScanStatus === 'running') {
+        updateState({ cleaningScanStatus: 'ready' });
+      }
+      return;
+    }
+
+    const fallbackColumn =
+      payload.columnNumber ?? columnNumber ?? columnData?.columnNumber ?? null;
+
+    const targetedColumns = new Set<number>();
+    if (annotations.length === 0) {
+      if (fallbackColumn != null) {
+        targetedColumns.add(fallbackColumn);
+      }
+    } else {
+      annotations.forEach((annotation) => {
+        const targetColumn = annotation.columnNumber ?? fallbackColumn;
+        if (targetColumn != null) {
+          targetedColumns.add(targetColumn);
+        }
+      });
+    }
+
+    if (targetedColumns.size === 0) {
+      updateState({ cleaningScanStatus: 'ready' });
+      return;
+    }
+
+    setCellRisks((prev) => {
+      const next: CellRiskMap = { ...prev };
+
+      for (const key of Object.keys(next)) {
+        const [columnPart] = key.split(":");
+        const numericColumn = Number(columnPart);
+        if (!Number.isNaN(numericColumn) && targetedColumns.has(numericColumn)) {
+          delete next[key];
+        }
+      }
+
+      if (annotations.length > 0) {
+        annotations.forEach((annotation) => {
+          const targetColumn = annotation.columnNumber ?? fallbackColumn;
+          const recordNumber = annotation.recordNumber;
+          if (targetColumn == null || recordNumber == null) {
+            return;
+          }
+
+          const severity = (annotation.severity ?? "").toLowerCase();
+          if (!RISK_LEVEL_SET.has(severity as RiskLevel)) {
+            return;
+          }
+
+          const level = severity as RiskLevel;
+          const riskKey = makeCellRiskKey(targetColumn, recordNumber);
+          next[riskKey] = {
+            level,
+            reason: annotation.reason,
+          };
+        });
+      }
+
+      return next;
+    });
+    updateState({ cleaningScanStatus: 'ready' });
+  }, [sharedState.aiResponseContext, sharedState.cleaningScanStatus, datasetId, columnNumber, columnData]);
+
+  useEffect(() => {
+    setCellRisks({});
+    lastProcessedAiResponseRef.current = null;
+    updateState({ cleaningScanStatus: 'idle' });
+  }, [datasetId, updateState]);
 
   // Load dataset context from session storage on first render
   useEffect(() => {
@@ -565,6 +701,25 @@ const scheduleAiContextUpdate = useCallback((value: string) => {
   }, [datasetId, matrixColumns, matrixRows, rows, columnData, scheduleAiContextUpdate]);
 
   const isBusy = pyLoading || isSaving || matrixLoading;
+  const riskSummary = useMemo<RiskSummary>(() => {
+    return Object.values(cellRisks).reduce(
+      (acc, risk) => {
+        if (risk.level === "high") {
+          acc.high += 1;
+        } else if (risk.level === "medium") {
+          acc.medium += 1;
+        } else if (risk.level === "low") {
+          acc.low += 1;
+        }
+        return acc;
+      },
+      { high: 0, medium: 0, low: 0 } as RiskSummary,
+    );
+  }, [cellRisks]);
+
+  const clearCellRisks = useCallback(() => {
+    setCellRisks({});
+  }, []);
 
   const contextValue = useMemo<CleaningContextValue>(
     () => ({
@@ -597,6 +752,10 @@ const scheduleAiContextUpdate = useCallback((value: string) => {
       handleUndo,
       handleReset,
       handleSave,
+      cellRisks,
+      riskSummary,
+      clearCellRisks,
+      scanStatus: sharedState.cleaningScanStatus,
       setLocalError,
     }),
     [
@@ -627,6 +786,10 @@ const scheduleAiContextUpdate = useCallback((value: string) => {
       handleUndo,
       handleReset,
       handleSave,
+      cellRisks,
+      riskSummary,
+      clearCellRisks,
+      sharedState.cleaningScanStatus,
     ]
   );
 
@@ -646,16 +809,6 @@ export function useCleaningContext(): CleaningContextValue {
   }
   return context;
 }
-
-
-
-
-
-
-
-
-
-
 
 
 
