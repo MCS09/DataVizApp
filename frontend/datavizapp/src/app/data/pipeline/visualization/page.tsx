@@ -116,9 +116,19 @@ export default function Page() {
       features: string[]
     ): Promise<Record<string, any>[]> {
       // parallel fetch for all features
-      const columns: ColumnData[] = await Promise.all(
-        features.map(f => getColumnData({ datasetId, columnName: f }))
-      );
+      // get column name
+      const columns: ColumnData[] = (
+        await Promise.all(
+          features.map(async (f) => {
+            try {
+              return await getColumnData({ datasetId, columnName: f });
+            } catch (err) {
+              console.warn(`Failed to fetch column ${f}:`, err);
+              return null; // ignore failures
+            }
+          })
+        )
+      ).filter((c): c is ColumnData => c !== null); // keep only successful fetches
 
       // merge column wise to row wise
       const rowMap = columns.reduce<Record<number, Record<string, any>>>((acc, col) => {
