@@ -53,7 +53,7 @@ namespace DataVizApp.Controllers
             );
         }
 
-        public record ColumnDataDto(int DatasetId, int ColumnNumber, List<DataRecordDto> DataRecords);
+        public record ColumnDataDto(int DatasetId, int ColumnNumber, List<RecordValueDto> DataRecords);
 
         public record GetColumnDataRequest(int DatasetId, int ColumnNumber);
 
@@ -66,7 +66,7 @@ namespace DataVizApp.Controllers
             // Get columns
             List<DataRecord> records = await _datasetService.GetColumnDataByIdAsync(request.DatasetId, request.ColumnNumber);
 
-            List<DataRecordDto> dtoRecords = [.. records.Select(r => new DataRecordDto(r.RecordNumber, r.Value))];
+            List<RecordValueDto> dtoRecords = [.. records.Select(r => new RecordValueDto(r.RecordNumber, r.Value))];
 
             ColumnDataDto result = new(request.DatasetId, request.ColumnNumber, dtoRecords);
 
@@ -74,18 +74,18 @@ namespace DataVizApp.Controllers
         }
 
         public record GetColumnDataByNameRequest(int DatasetId, string ColumnName);
-        public record ColumnDataWithNameDto(int DatasetId, string ColumnName, int ColumnNumber, List<DataRecordDto> DataRecords);
+        public record ColumnDataWithNameDto(int DatasetId, string ColumnName, int ColumnNumber, List<RecordValueDto> DataRecords);
 
         [HttpPost("getColumnDataByName")]
         public async Task<ActionResult<ColumnDataWithNameDto>> GetColumnDataByName([FromBody] GetColumnDataByNameRequest request)
         {
             Dataset? dataset = await _datasetService.GetDatasetByIdAsync(request.DatasetId);
             if (dataset == null) return NotFound("Dataset not found.");
-            
+
             // Get columns
             (DatasetColumn column, List<DataRecord> records) = await _datasetService.GetColumnDataByNameAsync(request.DatasetId, request.ColumnName);
 
-            List<DataRecordDto> dtoRecords = [.. records.Select(r => new DataRecordDto(r.RecordNumber, r.Value))];
+            List<RecordValueDto> dtoRecords = [.. records.Select(r => new RecordValueDto(r.RecordNumber, r.Value))];
 
             ColumnDataWithNameDto result = new(request.DatasetId, request.ColumnName, column.ColumnNumber, dtoRecords);
 
@@ -123,7 +123,7 @@ namespace DataVizApp.Controllers
 
             return Ok(new { profiles });
         }
-        
+
         [HttpPost("setColumnData")]
         public async Task<IActionResult> SetColumnData([FromBody] ColumnDataDto request)
         {
@@ -157,7 +157,7 @@ namespace DataVizApp.Controllers
 
 
         public record DatasetColumnsRequest(int DatasetId, List<DatasetColumnDto> NewColumns);
-        
+
         [HttpPost("setColumns")]
         public async Task<IActionResult> SetColumns([FromBody] DatasetColumnsRequest request)
         {
@@ -185,7 +185,7 @@ namespace DataVizApp.Controllers
             List<string> workflowStageNames = await _datasetService.GetWorkflowStagesNames();
             string? match = workflowStageNames.FirstOrDefault(e => e == request.WorkflowStageName);
             if (match == null)
-            { 
+            {
                 return NotFound("Workflow stage name not found.");
             }
 
@@ -203,7 +203,7 @@ namespace DataVizApp.Controllers
                 return NotFound("Thread ID not found for the specified workflow stage.");
             }
 
-            return Ok(new {threadId});
+            return Ok(new { threadId });
         }
 
         [HttpGet("getColumnsByDatasetId/{datasetId}")]
@@ -212,6 +212,15 @@ namespace DataVizApp.Controllers
             List<DatasetColumn> columns = await _datasetService.GetColumnByDatasetIdAsync(datasetId);
             if (columns == null || columns.Count == 0) return NotFound("No columns found for the specified dataset.");
             return Ok(columns);
+        }
+
+        public record RecordDto(List<ColumnValueDto> ColumnValueDtos);
+
+        [HttpGet("getRecord/{datasetId}/{recordNumber}")]
+        public async Task<ActionResult<RecordDto>> GetRecord(int datasetId, int recordNumber)
+        {
+            var record = await _datasetService.GetRecordAsync(datasetId, recordNumber);
+            return new RecordDto(record);
         }
     }
 }

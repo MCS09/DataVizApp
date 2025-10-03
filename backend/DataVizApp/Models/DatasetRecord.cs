@@ -16,4 +16,6 @@ public class DataRecord
     public required string Value { get; set; }
 }
 
-public record DataRecordDto(int RecordNumber, string Value);
+public record RecordValueDto(int RecordNumber, string Value);
+
+public record ColumnValueDto(int ColumnNumber, string Value);

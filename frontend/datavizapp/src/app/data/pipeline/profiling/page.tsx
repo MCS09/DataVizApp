@@ -9,7 +9,7 @@ import Button from "@/app/components/input/Button";
 import { useRouter } from "next/navigation";
 
 // Get Column Profile
-const getColumnProfile = async (datasetId: number) =>
+export const getColumnProfile = async (datasetId: number) =>
   await fetchData<ColumnProfile[]>(
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnsByDatasetId/${datasetId}`,
     {
@@ -20,12 +20,12 @@ const getColumnProfile = async (datasetId: number) =>
     }
   );
 
-type ColumnsDto = {
+export type ColumnsDto = {
   datasetId: number;
   newColumns: ColumnProfile[];
 };
 
-const saveColumns = async (body: ColumnsDto) =>
+export const saveColumns = async (body: ColumnsDto) =>
   await postData(
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumns`,
     body
