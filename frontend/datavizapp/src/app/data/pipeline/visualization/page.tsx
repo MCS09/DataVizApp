@@ -17,40 +17,39 @@ const getAIContext = async (datasetId: number) =>
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getSchema/${datasetId}`
   );
 
-type GetColumnDataByNameRequestDto = 
-{
-  datasetId: number,
-  columnName: string
-}
+type GetColumnDataByNameRequestDto = {
+  datasetId: number;
+  columnName: string;
+};
 
-const getColumnData = async (getColumnDataRequestDto: GetColumnDataByNameRequestDto) =>
-    await fetchData<ColumnData>(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnDataByName`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(getColumnDataRequestDto),
-    });
-
-
+const getColumnData = async (
+  getColumnDataRequestDto: GetColumnDataByNameRequestDto
+) =>
+  await fetchData<ColumnData>(
+    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnDataByName`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(getColumnDataRequestDto),
+    }
+  );
 
 export default function Page() {
   const [datasetId, setDatasetId] = useState<number | undefined>();
   const { sharedState, updateState } = useStore();
 
-  // UI state
   const [width, setWidth] = useState(600);
-  const [ratio, setRatio] = useState<"original" | "16:9" | "4:3" | "1:1">("16:9");
+  const [ratio, setRatio] = useState<"original" | "16:9" | "4:3" | "1:1">(
+    "16:9"
+  );
   const [theme, setTheme] = useState<string>("tableau10");
 
-  // Render limits
   const MAX_WIDTH = 1000;
-
-  // Vega view ref (passed up from ChartBox once the chart mounts)
   const vegaRef = useRef<any | null>(null);
 
-  // Build spec (width, ratio, theme → vega-lite spec)
-  const { setBaseSpec, setAIColumnsProfileContext, baseSpec, spec, clampedWidth, height } = useVegaSpec({
+  const { setBaseSpec, baseSpec, spec, clampedWidth, height } = useVegaSpec({
     width,
     ratio,
     theme,
@@ -71,7 +70,7 @@ export default function Page() {
   type AIContext = {
     profiles: AIColumnsProfileContext[];
     currentSpec: typeof baseSpec;
-  }
+  };
 
   // Load initial AI context from backend
   // Set context to AI
@@ -81,15 +80,13 @@ export default function Page() {
         if (data && data.profiles) {
           const aiContext: AIContext = {
             profiles: data.profiles,
-            currentSpec: baseSpec
-          }
+            currentSpec: baseSpec,
+          };
           updateState({ aiContext: JSON.stringify(aiContext) });
         }
       });
     }
   }, [datasetId, baseSpec]);
-
-
 
   useEffect(() => {
     // If we have a new AI response, update the base spec
@@ -104,67 +101,74 @@ export default function Page() {
     }
   }, [sharedState.aiResponseContext]);
 
-    const cell = (v: string) => {
-      if (v == null || v === "") return null;
-      const n = Number(v);
-      return Number.isFinite(n) ? n : String(v).trim();
-    };
-    async function valuesFromFeatures(
-      datasetId: number,
-      features: string[]
-    ): Promise<Record<string, any>[]> {
-      // parallel fetch for all features
-      const columns: ColumnData[] = await Promise.all(
-        features.map(f => getColumnData({ datasetId, columnName: f }))
-      );
+  const cell = (v: string) => {
+    if (v == null || v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) ? n : String(v).trim();
+  };
+  async function valuesFromFeatures(
+    datasetId: number,
+    features: string[]
+  ): Promise<Record<string, any>[]> {
+    const columns: ColumnData[] = await Promise.all(
+      features.map((f) => getColumnData({ datasetId, columnName: f }))
+    );
 
-      // merge column wise to row wise
-      const rowMap = columns.reduce<Record<number, Record<string, any>>>((acc, col) => {
+    const rowMap = columns.reduce<Record<number, Record<string, any>>>(
+      (acc, col) => {
         col.dataRecords.forEach(({ recordNumber, value }) => {
           const row = acc[recordNumber] || (acc[recordNumber] = {});
           row[col.columnName] = cell(value);
         });
         return acc;
-      }, {});
+      },
+      {}
+    );
 
-      // ordered array by recordNumber
-      return Object.keys(rowMap)
-        .map(Number)
-        .sort((a, b) => a - b)
-        .map(k => rowMap[k]);
-    }
+    return Object.keys(rowMap)
+      .map(Number)
+      .sort((a, b) => a - b)
+      .map((k) => rowMap[k]);
+  }
 
-  async function extendSpecWithData(datasetId:number,initialSpec: typeof spec): Promise<typeof spec> {
-    const columnData: ColumnData[] = [];
+  async function extendSpecWithData(
+    datasetId: number,
+    initialSpec: typeof spec
+  ): Promise<typeof spec> {
     const feat = Object.keys(spec.data?.values?.[0] ?? {});
-  
+    if (feat.length === 0) return initialSpec; // Return early if no features
+
     const value = await valuesFromFeatures(datasetId, feat);
     return {
       ...initialSpec,
       data: {
-        values: value // Use the fetched values here
-      }
+        values: value,
+      },
     };
   }
 
-  // build the promise once per change
   const fullSpecPromise = React.useMemo(
     () =>
       datasetId !== undefined
-        ? extendSpecWithData(datasetId, spec)   // returns Promise<Spec>
+        ? extendSpecWithData(datasetId, spec)
         : Promise.resolve(spec),
     [datasetId, spec]
   );
 
-  // resolve to a plain object for ChartBox
   const [resolvedSpec, setResolvedSpec] = React.useState(spec);
 
   React.useEffect(() => {
     let alive = true;
     fullSpecPromise
-      .then(s => { if (alive) setResolvedSpec(s); })
-      .catch(() => { if (alive) setResolvedSpec(spec); });
-    return () => { alive = false; };
+      .then((s) => {
+        if (alive) setResolvedSpec(s);
+      })
+      .catch(() => {
+        if (alive) setResolvedSpec(spec);
+      });
+    return () => {
+      alive = false;
+    };
   }, [fullSpecPromise, spec]);
 
 
@@ -173,9 +177,9 @@ export default function Page() {
 
 
   return (
-    <div className="w-full h-screen flex justify-center items-center">
-      <div className="w-full max-w-5xl flex flex-col gap-6 items-center justify-center">
-        {/* Controls */}
+    <div className="p-4 flex flex-col h-full gap-4 bg-white">
+      {/*Top Control Bar */}
+      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
         <ChartControls
           width={width}
           onWidthChange={setWidth}
@@ -185,18 +189,23 @@ export default function Page() {
           clampedWidth={clampedWidth}
           height={height}
         />
+      </div>
 
-        {/* Chart */}
-        <ChartBox spec={resolvedSpec} onViewReady={(view) => (vegaRef.current = view)} />
+      {/* Chart Area (this will grow and shrink to fit available space) */}
+      <div className="flex-1 min-h-0 overflow-y-auto border border-gray-200 rounded-lg shadow-inner bg-gray-50">
+        <ChartBox
+          spec={resolvedSpec}
+          onViewReady={(view) => (vegaRef.current = view)}
+        />
+      </div>
 
-        {/* Theme picker */}
+      {/* Bottom Toolbar for Themes and Exporting */}
+      <div className="flex justify-between items-center p-2 bg-gray-50 border border-gray-200 rounded-lg">
         <ChartThemePicker
           themes={chartThemes}
           activeScheme={theme}
           onPick={(scheme) => setTheme(scheme)}
         />
-
-        {/* Export */}
         <ExportButtons getView={() => vegaRef.current} />
       </div>
     </div>
