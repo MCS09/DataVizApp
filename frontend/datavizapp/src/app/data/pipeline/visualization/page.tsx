@@ -11,9 +11,14 @@ import { AIColumnsProfileContext, ColumnData } from "./data";
 import { fetchData, safeJsonParse } from "@/lib/api";
 import useStore from "@/lib/store";
 import { AIResponse } from "../layout";
+import ChartPlaceholder from "./components/ChartPlaceholder";
 
+/**
+ * Fetches the schema and column profiles for a given dataset.
+ * This data is used as context for the AI assistant.
+ */
 const getAIContext = async (datasetId: number) =>
-  await fetchData<{ "profiles" : AIColumnsProfileContext[]}>(
+  await fetchData<{ profiles: AIColumnsProfileContext[] }>(
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getSchema/${datasetId}`
   );
 
@@ -22,6 +27,9 @@ type GetColumnDataByNameRequestDto = {
   columnName: string;
 };
 
+/**
+ * Fetches the actual data records for a specific column in a dataset.
+ */
 const getColumnData = async (
   getColumnDataRequestDto: GetColumnDataByNameRequestDto
 ) =>
@@ -37,18 +45,31 @@ const getColumnData = async (
   );
 
 export default function Page() {
+  // The ID of the current dataset, loaded from session storage.
   const [datasetId, setDatasetId] = useState<number | undefined>();
+  // Zustand global store for sharing state between components (e.g., AI responses).
   const { sharedState, updateState } = useStore();
 
+  // State for the chart's configurable properties.
   const [width, setWidth] = useState(600);
   const [ratio, setRatio] = useState<"original" | "16:9" | "4:3" | "1:1">(
     "16:9"
   );
   const [theme, setTheme] = useState<string>("tableau10");
+  
+  // Tracks if the initial sample chart is displayed, or a user-generated one.
+  const [isSampleView, setIsSampleView] = useState(true);
+
+  // A ref to hold the Vega view instance, used for exporting the chart.
+  const vegaRef = useRef<any | null>(null);
+  
+  // State to hold the final, data-enriched Vega specification that gets rendered.
+  const [resolvedSpec, setResolvedSpec] = React.useState<any | null>(null);
 
   const MAX_WIDTH = 1000;
-  const vegaRef = useRef<any | null>(null);
 
+  // This custom hook manages the core Vega-Lite specification object.
+  // It takes the user's settings (width, ratio, theme) and produces a `spec` object.
   const { setBaseSpec, baseSpec, spec, clampedWidth, height } = useVegaSpec({
     width,
     ratio,
@@ -58,7 +79,7 @@ export default function Page() {
   });
 
 
-  // load datasetId (From session store)
+  // On initial component mount, load the datasetId from session storage.
   useEffect(() => {
     const stored = sessionStorage.getItem("sessionFileData");
     if (stored) {
@@ -72,8 +93,8 @@ export default function Page() {
     currentSpec: typeof baseSpec;
   };
 
-  // Load initial AI context from backend
-  // Set context to AI
+  // When datasetId or the base spec changes, fetch the column profiles
+  // and update the global AI context in the Zustand store.
   useEffect(() => {
     if (datasetId) {
       getAIContext(datasetId).then((data) => {
@@ -88,8 +109,10 @@ export default function Page() {
     }
   }, [datasetId, baseSpec]);
 
+  // Listen for changes in the AI's response from the global store.
+  // If a new response arrives, parse it, update the base chart spec,
+  // and switch from the sample view to the main chart view.
   useEffect(() => {
-    // If we have a new AI response, update the base spec
     if (sharedState.aiResponseContext) {
       const aiResponse = safeJsonParse<AIResponse<string>>(
         sharedState.aiResponseContext
@@ -97,15 +120,24 @@ export default function Page() {
       if (!aiResponse) return;
       const specs = safeJsonParse<typeof baseSpec>(aiResponse.updatedData);
       if (!specs) return;
+      
       setBaseSpec(specs);
+      setIsSampleView(false);
     }
   }, [sharedState.aiResponseContext]);
 
+  /**
+   * Helper function to parse a cell value into a number or string.
+   */
   const cell = (v: string) => {
     if (v == null || v === "") return null;
     const n = Number(v);
     return Number.isFinite(n) ? n : String(v).trim();
   };
+  
+  /**
+   * Fetches the data for multiple columns and transforms it into an array of row objects.
+   */
   async function valuesFromFeatures(
     datasetId: number,
     features: string[]
@@ -131,6 +163,9 @@ export default function Page() {
       .map((k) => rowMap[k]);
   }
 
+  /**
+   * Takes a Vega spec and enriches it with actual data from the backend.
+   */
   async function extendSpecWithData(
     datasetId: number,
     initialSpec: typeof spec
@@ -147,6 +182,8 @@ export default function Page() {
     };
   }
 
+  // A memoized promise that resolves to the final, data-enriched spec.
+  // This prevents re-fetching data on every re-render.
   const fullSpecPromise = React.useMemo(
     () =>
       datasetId !== undefined
@@ -155,8 +192,8 @@ export default function Page() {
     [datasetId, spec]
   );
 
-  const [resolvedSpec, setResolvedSpec] = React.useState(spec);
-
+  // This effect waits for the `fullSpecPromise` to resolve and then
+  // updates the `resolvedSpec` state, which triggers a re-render of the chart.
   React.useEffect(() => {
     let alive = true;
     fullSpecPromise
@@ -191,12 +228,19 @@ export default function Page() {
         />
       </div>
 
-      {/* Chart Area (this will grow and shrink to fit available space) */}
+      {/* Chart Area: Conditionally render the Placeholder or the direct ChartBox */}
       <div className="flex-1 min-h-0 overflow-y-auto border border-gray-200 rounded-lg shadow-inner bg-gray-50">
-        <ChartBox
-          spec={resolvedSpec}
-          onViewReady={(view) => (vegaRef.current = view)}
-        />
+        {isSampleView ? (
+          <ChartPlaceholder
+            spec={resolvedSpec}
+            onViewReady={(view) => (vegaRef.current = view)}
+          />
+        ) : (
+          <ChartBox
+            spec={resolvedSpec}
+            onViewReady={(view) => (vegaRef.current = view)}
+          />
+        )}
       </div>
 
       {/* Bottom Toolbar for Themes and Exporting */}
