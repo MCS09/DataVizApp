@@ -174,6 +174,20 @@ export default function DatasetSelectionPage() {
     }
   };
 
+  const handleHistorySelection = (dataset: Dataset) => {
+    setLoading(true);
+    try {
+      sessionStorage.setItem(
+        "sessionFileData",
+        JSON.stringify({ datasetId: dataset.datasetId })
+      );
+      router.push(ROUTES.datasetProfilingPage);
+    } catch (error) {
+      console.error("Failed to load dataset for profiling:", error);
+      setLoading(false);
+    }
+  };
+
   const handleUploadSourceChange = (source: "local" | "google") => {
     setUploadSource(source);
     setFileName(null);
@@ -253,7 +267,7 @@ export default function DatasetSelectionPage() {
               {datasets.map((dataset, index) => (
                   <button
                   key={dataset.datasetId}
-                  onClick={() => { /* TODO: Implement logic to load this dataset for profiling */ }}
+                  onClick={() => handleHistorySelection(dataset)}
                   className={`w-full flex items-center gap-3 rounded-xl p-4 transition text-left ${
                       index === 0
                       ? "border border-purple-300 bg-purple-50 hover:bg-purple-100"
