@@ -1,7 +1,7 @@
 "use client";
 import { usePathname } from "next/navigation";
 import { AllCommunityModule, ModuleRegistry } from 'ag-grid-community'; 
-import Steps from "./components/steps";
+import Steps from "./components/Steps";
  
 
 
