@@ -9,7 +9,7 @@ type Props = {
 export default function ChartBox({ spec, onViewReady }: Props) {
   console.log("specs",spec)
   return (
-    <div className="w-full h-full p-4">
+    <div className="w-full h-[400px] flex justify-center items-center rounded-lg">
       <VegaLiteClient spec={spec} getView={onViewReady} />
     </div>
   );

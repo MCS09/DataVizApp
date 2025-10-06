@@ -15,7 +15,7 @@ export default function RootLayout({
       <body className="bg-base-200 min-h-screen flex flex-col">
           <SessionProvider>
             <NavBar />
-            <main className="flex-1">{children}</main>
+            <main className="flex-1 flex flex-col">{children}</main>
             <Footer />
           </SessionProvider>
       </body>

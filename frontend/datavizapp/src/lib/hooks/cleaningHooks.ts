@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { usePyodide } from "./usePyodide";
 import { FileData } from "../dataset";
 import { safeJsonParse } from "../api";
-import { ColumnProfile } from "@/app/components/input/Fieldset";
+import { ColumnProfile } from "@/app/data/pipeline/profiling/components/CarouselItem";
 
 // Like xlsx [{DataCell}] and each data cell
 export type DataFrame = DataCell[];

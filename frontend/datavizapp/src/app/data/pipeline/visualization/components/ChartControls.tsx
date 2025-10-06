@@ -9,7 +9,7 @@ type Props = {
   onRatioChange: (r: "original" | "16:9" | "4:3" | "1:1") => void;
   maxWidth: number;
   clampedWidth: number;
-  height?: number | string;
+  height?: number;
 };
 
 export default function ChartControls({
@@ -22,25 +22,27 @@ export default function ChartControls({
   height,
 }: Props) {
   return (
-    <div className="flex gap-6 items-center flex-wrap text-sm text-gray-700">
-      <label className="flex items-center gap-2">
-        <span>Width (px):</span>
+    <div className="flex gap-6 items-center flex-wrap">
+      <label >
+        Width (px):{" "}
         <input
           type="number"
           min={100}
           max={maxWidth}
           value={width}
           onChange={(e) => onWidthChange(Number(e.target.value))}
-          className="w-24 px-2 py-1 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition"
+          className="px-2 py-1 rounded border-2"
         />
       </label>
 
-      <label className="flex items-center gap-2">
-        <span>Aspect Ratio:</span>
+      <label className="">
+        Ratio:{" "}
         <select
           value={ratio}
-          onChange={(e) => onRatioChange(e.target.value as Props["ratio"])}
-          className="px-2 py-1 rounded-md border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition bg-white"
+          onChange={(e) =>
+            onRatioChange(e.target.value as Props["ratio"])
+          }
+          className="px-2 py-1 rounded border-2"
         >
           <option value="original">Original</option>
           <option value="16:9">16:9</option>
@@ -49,8 +51,8 @@ export default function ChartControls({
         </select>
       </label>
 
-      <span className="font-mono text-blue-600 bg-blue-100 px-2 py-1 rounded-md">
-        → Chart Size: {clampedWidth} × {height}
+      <span className="">
+        → Chart size: {clampedWidth} × {height ?? "auto"}
       </span>
     </div>
   );

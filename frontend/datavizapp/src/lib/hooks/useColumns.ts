@@ -1,4 +1,4 @@
-import { ColumnProfile } from "@/app/components/input/Fieldset";
+import { ColumnProfile } from "@/app/data/pipeline/profiling/components/CarouselItem";
 import { useState } from "react";
 
 export type Column = {

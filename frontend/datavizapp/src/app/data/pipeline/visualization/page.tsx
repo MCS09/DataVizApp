@@ -11,66 +11,48 @@ import { AIColumnsProfileContext, ColumnData } from "./data";
 import { fetchData, safeJsonParse } from "@/lib/api";
 import useStore from "@/lib/store";
 import { AIResponse } from "../layout";
-import ChartPlaceholder from "./components/ChartPlaceholder";
 
-/**
- * Fetches the schema and column profiles for a given dataset.
- * This data is used as context for the AI assistant.
- */
 const getAIContext = async (datasetId: number) =>
-  await fetchData<{ profiles: AIColumnsProfileContext[] }>(
+  await fetchData<{ "profiles" : AIColumnsProfileContext[]}>(
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getSchema/${datasetId}`
   );
 
-type GetColumnDataByNameRequestDto = {
-  datasetId: number;
-  columnName: string;
-};
+type GetColumnDataByNameRequestDto = 
+{
+  datasetId: number,
+  columnName: string
+}
 
-/**
- * Fetches the actual data records for a specific column in a dataset.
- */
-const getColumnData = async (
-  getColumnDataRequestDto: GetColumnDataByNameRequestDto
-) =>
-  await fetchData<ColumnData>(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnDataByName`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(getColumnDataRequestDto),
-    }
-  );
+const getColumnData = async (getColumnDataRequestDto: GetColumnDataByNameRequestDto) =>
+    await fetchData<ColumnData>(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnDataByName`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(getColumnDataRequestDto),
+    });
+
+
 
 export default function Page() {
-  // The ID of the current dataset, loaded from session storage.
   const [datasetId, setDatasetId] = useState<number | undefined>();
-  // Zustand global store for sharing state between components (e.g., AI responses).
   const { sharedState, updateState } = useStore();
 
-  // State for the chart's configurable properties.
+  // UI state
   const [width, setWidth] = useState(600);
-  const [ratio, setRatio] = useState<"original" | "16:9" | "4:3" | "1:1">(
-    "16:9"
-  );
+  const [ratio, setRatio] = useState<"original" | "16:9" | "4:3" | "1:1">("16:9");
   const [theme, setTheme] = useState<string>("tableau10");
-  
-  // Tracks if the initial sample chart is displayed, or a user-generated one.
-  const [isSampleView, setIsSampleView] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // A ref to hold the Vega view instance, used for exporting the chart.
-  const vegaRef = useRef<any | null>(null);
-  
-  // State to hold the final, data-enriched Vega specification that gets rendered.
-  const [resolvedSpec, setResolvedSpec] = React.useState<any | null>(null);
 
+  // Render limits
   const MAX_WIDTH = 1000;
 
-  // This custom hook manages the core Vega-Lite specification object.
-  // It takes the user's settings (width, ratio, theme) and produces a `spec` object.
-  const { setBaseSpec, baseSpec, spec, clampedWidth, height } = useVegaSpec({
+  // Vega view ref (passed up from ChartBox once the chart mounts)
+  const vegaRef = useRef<any | null>(null);
+
+  // Build spec (width, ratio, theme → vega-lite spec)
+  const { setBaseSpec, setAIColumnsProfileContext, baseSpec, spec, clampedWidth, height } = useVegaSpec({
     width,
     ratio,
     theme,
@@ -79,7 +61,7 @@ export default function Page() {
   });
 
 
-  // On initial component mount, load the datasetId from session storage.
+  // load datasetId (From session store)
   useEffect(() => {
     const stored = sessionStorage.getItem("sessionFileData");
     if (stored) {
@@ -91,28 +73,28 @@ export default function Page() {
   type AIContext = {
     profiles: AIColumnsProfileContext[];
     currentSpec: typeof baseSpec;
-  };
+  }
 
-  // When datasetId or the base spec changes, fetch the column profiles
-  // and update the global AI context in the Zustand store.
+  // Load initial AI context from backend
+  // Set context to AI
   useEffect(() => {
     if (datasetId) {
       getAIContext(datasetId).then((data) => {
         if (data && data.profiles) {
           const aiContext: AIContext = {
             profiles: data.profiles,
-            currentSpec: baseSpec,
-          };
+            currentSpec: baseSpec
+          }
           updateState({ aiContext: JSON.stringify(aiContext) });
         }
       });
     }
   }, [datasetId, baseSpec]);
 
-  // Listen for changes in the AI's response from the global store.
-  // If a new response arrives, parse it, update the base chart spec,
-  // and switch from the sample view to the main chart view.
+
+
   useEffect(() => {
+    // If we have a new AI response, update the base spec
     if (sharedState.aiResponseContext) {
       const aiResponse = safeJsonParse<AIResponse<string>>(
         sharedState.aiResponseContext
@@ -120,66 +102,40 @@ export default function Page() {
       if (!aiResponse) return;
       const specs = safeJsonParse<typeof baseSpec>(aiResponse.updatedData);
       if (!specs) return;
-      
       setBaseSpec(specs);
-      setIsSampleView(false);
     }
   }, [sharedState.aiResponseContext]);
 
-  /**
-   * Helper function to parse a cell value into a number or string.
-   */
-  const cell = (v: string) => {
-    if (v == null || v === "") return null;
-    const n = Number(v);
-    return Number.isFinite(n) ? n : String(v).trim();
-  };
-  
-  /**
-   * Fetches the data for multiple columns and transforms it into an array of row objects.
-   */
-  async function valuesFromFeatures(
-    datasetId: number,
-    features: string[]
-  ): Promise<Record<string, any>[]> {
-    const columns: ColumnData[] = await Promise.all(
-      features.map((f) => getColumnData({ datasetId, columnName: f }))
-    );
+    const cell = (v: string) => {
+      if (v == null || v === "") return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : String(v).trim();
+    };
+    async function valuesFromFeatures(
+      datasetId: number,
+      features: string[]
+    ): Promise<Record<string, any>[]> {
+      // parallel fetch for all features
+      const columns: ColumnData[] = await Promise.all(
+        features.map(f => getColumnData({ datasetId, columnName: f }))
+      );
 
-    const rowMap = columns.reduce<Record<number, Record<string, any>>>(
-      (acc, col) => {
+      // merge column wise to row wise
+      const rowMap = columns.reduce<Record<number, Record<string, any>>>((acc, col) => {
         col.dataRecords.forEach(({ recordNumber, value }) => {
           const row = acc[recordNumber] || (acc[recordNumber] = {});
           row[col.columnName] = cell(value);
         });
         return acc;
-      },
-      {}
-    );
+      }, {});
 
-    return Object.keys(rowMap)
-      .map(Number)
-      .sort((a, b) => a - b)
-      .map((k) => rowMap[k]);
-  }
+      // ordered array by recordNumber
+      return Object.keys(rowMap)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .map(k => rowMap[k]);
+    }
 
-  /**
-   * Takes a Vega spec and enriches it with actual data from the backend.
-   */
-  async function extendSpecWithData(
-    datasetId: number,
-    initialSpec: typeof spec
-  ): Promise<typeof spec> {
-    const feat = Object.keys(spec.data?.values?.[0] ?? {});
-    if (feat.length === 0) return initialSpec; // Return early if no features
-
-    const value = await valuesFromFeatures(datasetId, feat);
-    return {
-      ...initialSpec,
-      data: {
-        values: value,
-      },
-    };
   async function extendSpecWithData(datasetId:number,initialSpec: typeof spec): Promise<typeof spec> {
     try {
       const feat = Object.keys(initialSpec.data?.values?.[0] ?? {});
@@ -195,38 +151,32 @@ export default function Page() {
     }
   }
 
-  // A memoized promise that resolves to the final, data-enriched spec.
-  // This prevents re-fetching data on every re-render.
+  // build the promise once per change
   const fullSpecPromise = React.useMemo(
     () =>
       datasetId !== undefined
-        ? extendSpecWithData(datasetId, spec)
+        ? extendSpecWithData(datasetId, spec)   // returns Promise<Spec>
         : Promise.resolve(spec),
     [datasetId, spec]
   );
 
-  // This effect waits for the `fullSpecPromise` to resolve and then
-  // updates the `resolvedSpec` state, which triggers a re-render of the chart.
+  // resolve to a plain object for ChartBox
+  const [resolvedSpec, setResolvedSpec] = React.useState(spec);
+
   React.useEffect(() => {
     let alive = true;
     fullSpecPromise
-      .then((s) => {
-        if (alive) setResolvedSpec(s);
-      })
-      .catch(() => {
-        if (alive) setResolvedSpec(spec);
-      });
-    return () => {
-      alive = false;
-    };
+      .then(s => { if (alive) setResolvedSpec(s); })
+      .catch(() => { if (alive) setResolvedSpec(spec); });
+    return () => { alive = false; };
   }, [fullSpecPromise, spec]);
 
 
   // function extendSpecWithData(initialSpec: typeof spec): typeof spec | null {return null}
   return (
-    <div className="p-4 flex flex-col h-full gap-4 bg-white">
-      {/*Top Control Bar */}
-      <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
+    <div className="w-full h-screen flex justify-center items-center">
+      <div className="w-full max-w-5xl flex flex-col gap-6 items-center justify-center">
+        {/* Controls */}
         <ChartControls
           width={width}
           onWidthChange={setWidth}
@@ -236,34 +186,22 @@ export default function Page() {
           clampedWidth={clampedWidth}
           height={height}
         />
-      </div>
 
-      {/* Chart Area: Conditionally render the Placeholder or the direct ChartBox */}
-      <div className="flex-1 min-h-0 overflow-y-auto border border-gray-200 rounded-lg shadow-inner bg-gray-50">
-        {isSampleView ? (
-          <ChartPlaceholder
-            spec={resolvedSpec}
-            onViewReady={(view) => (vegaRef.current = view)}
-          />
-        ) : (
-          {error ? (
+        {/* Chart */}
+        {error ? (
         <div className="text-red-500 font-semibold">{error}</div>
       ) :
-             <ChartBox
-            spec={resolvedSpec}
-            onViewReady={(view) => (vegaRef.current = view)}
-          />
-        )}
-      }
-      </div>
+             <ChartBox spec={resolvedSpec} onViewReady={(view) => (vegaRef.current = view)} />
 
-      {/* Bottom Toolbar for Themes and Exporting */}
-      <div className="flex justify-between items-center p-2 bg-gray-50 border border-gray-200 rounded-lg">
+      }
+        {/* Theme picker */}
         <ChartThemePicker
           themes={chartThemes}
           activeScheme={theme}
           onPick={(scheme) => setTheme(scheme)}
         />
+
+        {/* Export */}
         <ExportButtons getView={() => vegaRef.current} />
       </div>
     </div>

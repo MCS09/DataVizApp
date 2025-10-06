@@ -13,7 +13,7 @@ import {
   mapDataFrameToColumnData,
   useLoadDataFrame,
 } from "@/lib/hooks/cleaningHooks";
-import { ColumnProfile } from "@/app/components/input/Fieldset";
+import { ColumnProfile } from "../pipeline/profiling/components/CarouselItem";
 
 // Create Dataset object in DB
 const createDataset = async (
