@@ -71,14 +71,31 @@ namespace DataVizApp.Services
                 .FirstOrDefaultAsync(ws => ws.DatasetId == datasetId && ws.WorkflowStageName == stageName);
         }
 
-        public async Task<bool> DeleteDatasetAsync(int id)
+        public async Task<bool> DeleteDatasetAsync(int datasetId)
         {
-            var dataset = await _appDbContext.Datasets.FindAsync(id);
-            if (dataset == null)
-                return false;
+            await using var transaction = await _appDbContext.Database.BeginTransactionAsync();
 
-            _appDbContext.Datasets.Remove(dataset);
-            await _appDbContext.SaveChangesAsync();
+            // Delete all records
+            await _appDbContext.DatasetRecords
+                .Where(r => r.DatasetId == datasetId)
+                .ExecuteDeleteAsync();
+
+            // Delete all columns
+            await _appDbContext.DatasetColumns
+                .Where(c => c.DatasetId == datasetId)
+                .ExecuteDeleteAsync();
+
+            // Delete workflow stages
+            await _appDbContext.WorkflowStages
+                .Where(ws => ws.DatasetId == datasetId)
+                .ExecuteDeleteAsync();
+
+            // Delete the dataset itself
+            await _appDbContext.Datasets
+                .Where(d => d.DatasetId == datasetId)
+                .ExecuteDeleteAsync();
+
+            await transaction.CommitAsync();
             return true;
         }
 
