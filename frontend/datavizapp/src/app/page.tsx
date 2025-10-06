@@ -1,70 +1,65 @@
 "use client";
+import { useSession } from "next-auth/react";
 
-import { useState } from "react";
-import { DefaultChatTransport } from 'ai';
-import { useChat } from '@ai-sdk/react';
-import ReactMarkdown from "react-markdown";
-import Button from "./components/input/Button";
-
-export default function Page() {
-  const [input, setInput] = useState("");
-
-  const { messages, sendMessage } = useChat({
-    transport: new DefaultChatTransport({
-      api: '/api/chat',
-      body: { 
-        // 'threadId': '',
-        'agentId': "asst_vDwd3nza70lBM8w9KspdFA03"
-      },
-    }),
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim()) return;
-    sendMessage({ role: "user", parts: [{ type: "text", text: input }] });
-    setInput("");
-  };
+export default function HomePage() {
+  const isAuthenticated = useSession().status === "authenticated";
 
   return (
-    <div className="flex flex-col h-screen max-w-3xl mx-auto p-4">
-      <div className="flex-1 overflow-y-auto space-y-4">
-        {messages.map((m) => {
-          const textPart = m.parts.find(
-            (p) => p.type === "text"
-          ) as { type: "text"; text: string } | undefined;
-
-          return (
-            <div
-              key={m.id}
-              className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`p-3 rounded-lg max-w-[75%] ${
-                  m.role === "user" ? "bg-blue-500 text-white" : "bg-gray-200"
-                }`}
-              >
-                <ReactMarkdown>{textPart?.text || ""}</ReactMarkdown>
-              </div>
-            </div>
-          );
-        })}
-        {messages.length === 0 && (
-          <div className="text-center text-gray-500">
-            Start the conversation by sending a message!
-          </div>
-        )}
+    <section className="h-screen text-center px-[3vh] mt-[10vh] flex flex-col items-center">
+      <div className="mb-[4vh]">
+        <span className="ai-badge inline-flex items-center px-[3vh] rounded-full text-sm font-semibold text-purple-700 mb-[3vh] border-2">
+          <svg className="w-[2vh] h-[3vh] mr-[1vh]" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          Next-Gen AI Data Analytics
+        </span>
       </div>
 
-      <form onSubmit={handleSubmit} className="flex gap-2 mt-4">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message..."
-          className="flex-1 border rounded-lg p-2"
-        />
-        <Button label="Send" type="submit"/>
-      </form>
-    </div>
+      <h1 className="text-[6vh] font-bold mb-[3vh] leading-tight bg-gradient-to-r from-purple-600 via-blue-600 to-emerald-600 text-transparent bg-clip-text">
+        Chat with your data.
+        <br />
+        Visualize with AI.
+      </h1>
+
+      <p className="text-[2.2vh] text-slate-600 max-w-[80vh] mx-auto ">
+        Upload, clean, and explore your data with our zero-code AI tool.
+      </p>
+
+      <div className="flex justify-center gap-[2vh] my-[3.5vh]">
+        {isAuthenticated?
+        (<a
+          href="/data"
+          className="px-[3vh] py-[1.5vh] bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold glow"
+        >
+          Start Visualize
+        </a>) : (<a
+          href="/auth/login"
+          className="px-[3vh] py-[1.5vh] bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-xl font-semibold glow"
+        >
+          Start by Log In
+        </a>)}
+      </div>
+
+      <div className="mt-[0.5vh] flex justify-center items-center space-x-[4vh] text-[1.8vh] text-slate-500">
+        <div className="flex items-center space-x-[1vh]">
+          <div className="w-[1vh] h-[1vh] bg-emerald-500 rounded-full animate-pulse"></div>
+          <span>Zero-code AI interface</span>
+        </div>
+        <div className="flex items-center space-x-[1vh]">
+          <div
+            className="w-[1vh] h-[1vh] bg-blue-500 rounded-full animate-pulse"
+            style={{ animationDelay: "0.5s" }}
+          ></div>
+          <span>Real-time ML processing</span>
+        </div>
+        <div className="flex items-center space-x-[1vh]">
+          <div
+            className="w-[1vh] h-[1vh] bg-purple-500 rounded-full animate-pulse"
+            style={{ animationDelay: "0.5s" }}
+          ></div>
+          <span>GPT-powered insights</span>
+        </div>
+      </div>
+    </section>
   );
 }

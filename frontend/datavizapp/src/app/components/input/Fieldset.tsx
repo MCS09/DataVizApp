@@ -1,7 +1,13 @@
-import { ColumnProfile } from "@/app/data/pipeline/profiling/components/CarouselItem";
+export type ColumnProfile = {
+    columnName: string;
+    columnDescription: string;
+    dataType: string;
+    columnNumber: number;
+    relationship: string;
+}
 
 const selectionFields: { [key: string]: string[] } = {
-  "Data Type": ["none", "int", "decimal", "text"],
+  "Data Type": ["str", "int", "decimal", "text", "datetime", "boolean"],
 };
 
 export default function Fieldset({
@@ -14,8 +20,9 @@ export default function Fieldset({
   updateColumn: (updatedColumn: ColumnProfile) => void;
 }) {
   return (
-    <fieldset className="fieldset bg-base-200 border-base-300 rounded-box w-xs border p-4">
-      <legend className="fieldset-legend">{columnHeader}</legend>
+    <div className="w-80 h-full flex flex-col gap-3 p-4 bg-base-100 shadow-xl border border-base-300 rounded-lg transition-shadow duration-200 hover:shadow-2xl">
+      <h2 className="text-base font-semibold truncate">{columnHeader}</h2>
+
       {[
         {
           fieldName: "Column Name",
@@ -32,49 +39,49 @@ export default function Fieldset({
           fieldName: "Column Number",
           key: "columnNumber",
           value: column.columnNumber.toString(),
+          readOnly: true,
         },
         {
           fieldName: "Describe relationship with other columns",
           key: "relationship",
           value: column.relationship,
         },
-      ].map(({ fieldName, key, value }) => (
-        <div key={key} className="mb-2">
-          <label className="label">{fieldName}</label>
+      ].map(({ fieldName, key, value, readOnly }) => (
+        <div key={key} className="form-control w-full">
+          <label className="label pt-1 pb-1">
+            <span className="label-text text-xs">{fieldName}</span>
+          </label>
           {selectionFields[fieldName] ? (
-            (() => {
-              const options =
-                value && !selectionFields[fieldName].includes(value)
-                  ? [...selectionFields[fieldName], value]
-                  : selectionFields[fieldName];
-              return (
-                <select
-                  className="select select-bordered w-full"
-                  value={value || ""}
-                  onChange={(e) =>
-                    updateColumn({ ...column, [key]: e.target.value })
-                  }
-                >
-                  {options.map((option) => (
-                    <option key={option} value={option}>
+            <div className="dropdown dropdown-bottom w-full">
+              <div tabIndex={0} role="button" className="input input-bordered input-sm w-full flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-neutral">
+                <span>{value || "Select Type"}</span>
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
+              <ul tabIndex={0} className="dropdown-content menu p-2 shadow-lg bg-base-100 rounded-box w-full mt-1 z-50">
+                {selectionFields[fieldName].map((option) => (
+                  <li key={option}>
+                    <a onClick={() => updateColumn({ ...column, [key]: option })}>
                       {option}
-                    </option>
-                  ))}
-                </select>
-              );
-            })()
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
           ) : (
             <input
               type="text"
-              className="input"
+              className="input input-bordered input-sm w-full focus:outline-none focus:ring-1 focus:ring-neutral"
               value={value || ""}
+              readOnly={readOnly}
               onChange={(e) =>
-                updateColumn({ ...column, [key]: e.target.value })
+                !readOnly && updateColumn({ ...column, [key]: e.target.value })
               }
             />
           )}
         </div>
       ))}
-    </fieldset>
+    </div>
   );
 }
