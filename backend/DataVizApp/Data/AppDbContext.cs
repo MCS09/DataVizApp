@@ -26,6 +26,8 @@ public partial class AppDbContext : DbContext
 
     public virtual DbSet<WorkflowVisualization> WorkflowVisualizations { get; set; }
 
+    public virtual DbSet<DatasetRecord> DatasetRecords { get; set; }
+
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         => optionsBuilder.UseSqlServer();
 
@@ -56,6 +58,16 @@ public partial class AppDbContext : DbContext
         modelBuilder.Entity<WorkflowVisualization>(entity =>
         {
             entity.HasKey(e => new { e.DatasetId, e.VisualizationName }).HasName("pk_workflow_visualizations");
+        });
+
+        modelBuilder.Entity<DatasetRecord>(dr =>
+        {
+            dr.HasKey(dr => new { dr.DatasetId, dr.ColumnNumber, dr.RecordNumber });
+            dr.HasIndex(dr => dr.DatasetId);
+            dr.HasOne<DatasetColumn>()
+                .WithMany()
+                .HasForeignKey(dr => new { dr.DatasetId, dr.ColumnNumber })
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         OnModelCreatingPartial(modelBuilder);

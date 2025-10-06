@@ -10,7 +10,7 @@ import Button from "@/app/components/input/Button";
 import { useRouter } from "next/navigation";
 
 // Get Column Profile
-const getColumnProfile = async (datasetId: number) =>
+export const getColumnProfile = async (datasetId: number) =>
   await fetchData<ColumnProfile[]>(
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnsByDatasetId/${datasetId}`,
     {
@@ -21,12 +21,13 @@ const getColumnProfile = async (datasetId: number) =>
     }
   );
 
-type ColumnsDto = {
+export type ColumnsDto = {
   datasetId: number;
   newColumns: ColumnProfile[];
+  columnNamesMap: { oldColumnName: string; newColumnName: string }[];
 };
 
-const saveColumns = async (body: ColumnsDto) =>
+export const saveColumns = async (body: ColumnsDto) =>
   await postData(
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumns`,
     body
@@ -34,7 +35,7 @@ const saveColumns = async (body: ColumnsDto) =>
 
 export default function ProfilingPage() {
   const [datasetId, setDatasetId] = useState<number | undefined>();
-  const { columns, setColumns } = useColumns([]);
+  const [columns, setColumns] = useState<{columnHeader: string; columnProfile: ColumnProfile & { oldColumnName?: string }}[]>([]);
   const { sharedState, updateState } = useStore();
   const router = useRouter();
 
@@ -49,6 +50,12 @@ export default function ProfilingPage() {
 
   const updateColumn = (index: number, updatedColumn: ColumnProfile) => {
     const newColumns = [...columns];
+
+    // track old column name if not already tracked
+    if (!newColumns[index].columnProfile.oldColumnName) {
+      newColumns[index].columnProfile.oldColumnName = newColumns[index].columnProfile.columnName;
+    }
+
     newColumns[index].columnProfile = updatedColumn;
     const sorted = newColumns.sort(
       (a, b) => a.columnProfile.columnNumber - b.columnProfile.columnNumber
@@ -93,6 +100,42 @@ export default function ProfilingPage() {
   }, [sharedState.aiResponseContext, datasetId]);
 
   return (
+    <div style={{ overflowX: "auto" }}>
+      {columns && (
+        <div className="carousel">
+          {columns.map((column, index) => (
+            <CarouselItem
+              key={index}
+              columnHeader={column.columnHeader}
+              columnProfile={column.columnProfile}
+              updateColumn={(updatedColumn) =>
+                updateColumn(index, updatedColumn)
+              }
+            />
+          ))}
+        </div>
+      )}
+      <Button
+        label={"Next"}
+        action={async () => {
+          // save the columns to server
+          const res = await saveColumns({
+            datasetId: datasetId!,
+            newColumns: columns.map((e) => ({
+              columnNumber: e.columnProfile.columnNumber,
+              columnName: e.columnProfile.columnName,
+              columnDescription: e.columnProfile.columnDescription,
+              dataType: e.columnProfile.dataType,
+              relationship: e.columnProfile.relationship,
+            })),
+            columnNamesMap: columns.map((c) => ({
+              oldColumnName: c.columnProfile.oldColumnName || c.columnProfile.columnName,
+              newColumnName: c.columnProfile.columnName,
+            })),
+          });
+          if (res) router.push("/data/pipeline/visualization");
+        }}
+      />
     <div className="flex flex-col h-full">
       <ColumnProfileList columns={columns} updateColumn={updateColumn} />
 

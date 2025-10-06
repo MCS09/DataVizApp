@@ -1,3 +1,4 @@
+"use client";
 import { useCallback, useEffect, useState } from "react";
 import { usePyodide } from "./usePyodide";
 import { FileData } from "../dataset";
@@ -7,11 +8,10 @@ import { ColumnProfile } from "@/app/components/input/Fieldset";
 // Like xlsx [{DataCell}] and each data cell
 export type DataFrame = DataCell[];
 export type DataCell = {
-  recordNumber: number,
-  columnNumber: number,
-  data: string
-}
-
+  recordNumber: number;
+  columnNumber: number;
+  data: string;
+};
 
 export type ColumnData = {
   datasetId: string;
@@ -22,21 +22,24 @@ export type ColumnData = {
   }[];
 };
 
-export function mapDataFrameToColumnData(datasetId: string, dataFrame: DataFrame): ColumnData[] {
+export function mapDataFrameToColumnData(
+  datasetId: string,
+  dataFrame: DataFrame
+): ColumnData[] {
   const grouped: { [key: number]: ColumnData } = {};
 
-  dataFrame.forEach(cell => {
+  dataFrame.forEach((cell) => {
     if (!grouped[cell.columnNumber]) {
       grouped[cell.columnNumber] = {
         datasetId,
         columnNumber: cell.columnNumber,
-        dataRecords: []
+        dataRecords: [],
       };
     }
 
     grouped[cell.columnNumber].dataRecords.push({
       recordNumber: cell.recordNumber,
-      value: String(cell.data ?? "")
+      value: String(cell.data ?? ""),
     });
   });
 
@@ -58,13 +61,13 @@ export function usePyFunctions() {
         pyodide.globals.set("embedded_input", embeddedInput);
 
         const jsonStr = await pyodide.runPythonAsync(`
-          import pandas as pd
-          import numpy as np
-          import io
+import pandas as pd
+import numpy as np
+import json
+import io
 
-          embedded_input = io.StringIO(embedded_input)
-          ${embeddedCode}
-          output_json
+${embeddedCode}
+output_json
         `);
 
         return jsonStr;
@@ -84,83 +87,64 @@ export function usePyFunctions() {
 // Define a new type that can be either a Google Drive source or a local File
 type FileDataSource = FileData | File;
 
-export function useLoadDataFrame() {
-  const [fileData, setFileData] = useState<FileDataSource | null>(null);
-  const [dataFrame, setDataFrame] = useState<DataFrame | null>(null);
-  const [columns, setColumns] = useState<ColumnProfile[] | undefined>();
-
-  const { isReady, executeEmbeddedCode, loading, error } = usePyFunctions();
+export function useCleanColumnDataTester() {
+  const [context, setContext] = useState<{columnData: ColumnData, jsonResult?: string} | undefined>();
+  const {isReady, executeEmbeddedCode} = usePyFunctions();
+  const [cleaningCode, setCleaningCode] = useState<string | null>(null);
+  const [executeCleaning, setExecuteCleaning] = useState<{toExecute: boolean, params?: Record<string, any>}>({toExecute: false});
 
   useEffect(() => {
-    if (!isReady || !fileData) return;
+    if (!isReady || !context || !cleaningCode || !executeCleaning.toExecute) return;
+    setExecuteCleaning({ toExecute: false });
 
-    const load = async () => {
-      try {
-        const fileContent = await (async () => {
-          if ('id' in fileData) {
-            // It's a Google Drive file
-            const url = `https://www.googleapis.com/drive/v3/files/${fileData.id}?alt=media`;
-            const response = await fetch(url, {
-              headers: { Authorization: `Bearer ${fileData.accessToken}` },
-            });
-            if (!response.ok) {
-              throw new Error(`Error fetching file: ${response.statusText}`);
-            }
-            return response.text();
-          } else {
-            // It's a local File object
-            return fileData.text();
-          }
-        })();
+    (async () => {
+      const pyInput = {
+        column_data: context.columnData,
+        ...(executeCleaning.params || {})
+      };
 
-        // The rest of the function proceeds as before
-        const result = await executeEmbeddedCode(
-          `
-          df = pd.read_csv(embedded_input)
-          # ... (rest of your python code is unchanged) ...
-          cell_df = df.reset_index().rename(columns={df.index.name or "index": "recordNumber"})
-          cell_df = cell_df.melt(id_vars=["recordNumber"], var_name="columnName", value_name="data")
-          col_map = {name: i for i, name in enumerate(df.columns)}
-          cell_df["columnNumber"] = cell_df["columnName"].map(col_map)
-          def infer_python_type(series: pd.Series) -> str:
-              non_null = series.dropna()
-              if non_null.empty: return "NoneType"
-              sample = non_null.iloc[0]
-              return type(sample).__name__
-          headers = [
-              {
-                  "columnNumber": i,
-                  "columnName": name,
-                  "columnDescription": "",
-                  "dataType": infer_python_type(df[name]),
-                  "relationship": ""
-              }
-              for i, name in enumerate(df.columns)
-          ]
-          cell_df["data"] = cell_df["data"].astype(str)
-          output = {
-              "headers": headers,
-              "data": cell_df[["recordNumber", "columnNumber", "data"]].to_dict(orient="records")
-          }
-          import json
-          output_json = json.dumps(output)
-          `,
-          fileContent
-        );
+      const result = await executeEmbeddedCode(
+        `
+import builtins
+import json
+ctx = json.loads(embedded_input)
+# Unpack context keys into local variables
+locals().update(ctx)
+error_msg = "Success"
 
-        const jsonResult = safeJsonParse<{headers: ColumnProfile[], data: DataFrame}>(result);
-        if (!jsonResult) throw new Error("Error loading dataframe");
+try:
+${cleaningCode
+  .split("\n")
+  .map(line => "    " + line)
+  .join("\n")}
+except Exception as e:
+    error_msg = str(e)
 
-        setDataFrame(jsonResult.data);
-        setColumns(jsonResult.headers);
-        
-      } catch (err) {
-        console.error("Failed to load dataframe:", err);
+# Output the cleaned data
+output_json = json.dumps({
+  "column_data": column_data,
+  "error_msg": error_msg
+})
+        `,
+        JSON.stringify(pyInput)
+      );
+
+      const parsed = safeJsonParse<{ column_data: ColumnData; error_msg: string }>(result);
+
+      if (!parsed) {
+        setContext({...context, jsonResult: "Python function with undetected error" });
       }
-    };
+      else{
+        if (parsed.error_msg === "Success") {
+            setContext({ columnData: parsed.column_data, jsonResult: parsed.error_msg });
+        } else {
+          // Only update jsonResult with error, keep previous columnData intact
+          setContext({ columnData: context.columnData, jsonResult: parsed.error_msg });
+        }
+      }
 
-    load();
-  }, [isReady, fileData, executeEmbeddedCode]);
+    })();
+  }, [isReady, context, cleaningCode, executeCleaning]);
 
-  return { columns, dataFrame, fileData, loading, error, setFileData };
+  return {setCleaningCode, context, setContext, setExecuteCleaning};
 }
