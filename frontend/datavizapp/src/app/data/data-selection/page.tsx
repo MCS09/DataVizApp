@@ -9,62 +9,21 @@ import { fetchData } from "@/lib/api";
 import { useSession } from "next-auth/react";
 import { ColumnData, DataFrame, mapDataFrameToColumnData, useLoadDataFrame } from "@/lib/hooks/cleaningHooks";
 import { ColumnProfile } from "../pipeline/profiling/components/CarouselItem";
-import { Dataset, UserDatasetsDto } from "@/lib/dataset";
-import pako from "pako";
+import { Dataset, FileData, UserDatasetsDto } from "@/lib/dataset";
 
-// Create Dataset object in DB
-const createDataset = async (
-  userEmail: string,
-  columns: ColumnProfile[],
-  dataFrame: DataFrame,
-  datasetName: string
-) => {
+// Import dataset from Google Drive
 
-  const dataset = await fetchData<Dataset>(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Content-Encoding": "gzip"
-      },
-      body: new Blob([
-        pako.gzip(JSON.stringify({
-          userId: userEmail,
-          columns: columns,
-          datasetName: datasetName,
-        }))
-      ]),
-    }
-  );
-
-  const columnDataArr = mapDataFrameToColumnData(
-    dataset.datasetId.toString(),
-    dataFrame
-  );
-
-  const batchSize = 500;
-  const promises: Promise<any>[] = [];
-  for (let i = 0; i < columnDataArr.length; i += batchSize) {
-    const batch = columnDataArr.slice(i, i + batchSize);
-    promises.push(
-      fetchData(
-        `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumnDataBatch`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Content-Encoding": "gzip"
-          },
-          body: new Blob([pako.gzip(JSON.stringify({ columnDataList: batch }))]),
-        }
-      )
-    );
+const importFromDrive = async (userId: string, fileId: string, accessToken: string, datasetName: string) => {
+  const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/importFromDrive`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ userId, fileId, accessToken, datasetName }),
+  });
+  if (!response.ok) {
+    throw new Error(`Import failed: ${response.statusText}`);
   }
-  await Promise.all(promises);
-
-  return dataset.datasetId;
-}
+  return response.json(); // { datasetId, columnsInserted, status }
+};
 
 export default function DatasetSelectionPage() {
   const { data: session } = useSession();
@@ -72,7 +31,7 @@ export default function DatasetSelectionPage() {
   const [metadata, setMetadata] = useState<GoogleDriveFileMetadata | null>(
     null
   );
-  const {dataFrame, setFileData, columns} = useLoadDataFrame();
+  const [fileData, setFileData] = useState<{ id: string; accessToken: string } | null>(null);
 
   const handleFilePicked = useCallback(
     async (newAccessToken: string, newMetadata: GoogleDriveFileMetadata) => {
@@ -87,18 +46,22 @@ export default function DatasetSelectionPage() {
 
   const handleConfirm = async () => {
     const email = session?.user?.email ?? "";
-    if (!metadata || !dataFrame || dataFrame.length === 0 || !email || !columns) {
+    if (!metadata || !fileData || !email) {
       return;
     }
 
-    const datasetId = await createDataset(email, columns, dataFrame, metadata.name);
-    
-    sessionStorage.setItem(
-      "sessionFileData",
-      JSON.stringify({ datasetId: datasetId })
-    );
+    try {
+      const { datasetId } = await importFromDrive(email, metadata.id, fileData.accessToken, metadata.name);
 
-    router.push(ROUTES.datasetProfilingPage);
+      sessionStorage.setItem(
+        "sessionFileData",
+        JSON.stringify({ datasetId })
+      );
+
+      router.push(ROUTES.datasetProfilingPage);
+    } catch (error) {
+      console.error("Failed to import dataset:", error);
+    }
   };
   return (
     <div>
@@ -111,7 +74,7 @@ export default function DatasetSelectionPage() {
             <p>Type: {metadata.mimeType}</p>
             <p>Size: {(metadata.sizeBytes / 1024).toFixed(2)} KB</p>
             <div className="card-actions justify-end">
-              {dataFrame && session && 
+              {fileData && session && 
                 <button className="btn btn-primary" onClick={handleConfirm}>
                   Confirm
                 </button>

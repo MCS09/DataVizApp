@@ -84,108 +84,19 @@ output_json
   return { loading, error, isReady, executeEmbeddedCode };
 }
 
-export function useLoadDataFrame() {
-  const [fileData, setFileData] = useState<FileData | null>(null);
-  const [dataFrame, setDataFrame] = useState<DataFrame | null>(null);
-  const [columns, setColunns] = useState<ColumnProfile[] | undefined>();
-
-  const { isReady, executeEmbeddedCode, loading, error } = usePyFunctions();
-
-  useEffect(() => {
-    if (!isReady || !fileData) return;
-
-    const load = async () => {
-      try {
-        const url = `https://www.googleapis.com/drive/v3/files/${fileData.id}?alt=media`;
-        const response = await fetch(url, {
-          headers: { Authorization: `Bearer ${fileData.accessToken}` },
-        });
-        if (!response.ok) {
-          throw new Error(`Error fetching file: ${response.statusText}`);
-        }
-
-        const fileContent = await response.text();
-
-        const result = await executeEmbeddedCode(
-          `
-embedded_input = io.StringIO(embedded_input)
-df = pd.read_csv(embedded_input)
-
-# Melt into cell-oriented format
-cell_df = df.reset_index().rename(columns={df.index.name or "index": "recordNumber"})
-cell_df = cell_df.melt(id_vars=["recordNumber"], var_name="columnName", value_name="data")
-
-# Map column names → indices
-col_map = {name: i for i, name in enumerate(df.columns)}
-cell_df["columnNumber"] = cell_df["columnName"].map(col_map)
-
-# Function to infer actual Python type name
-def infer_python_type(series: pd.Series) -> str:
-  # drop nulls to avoid errors
-  non_null = series.dropna()
-  if non_null.empty:
-      return "NoneType"
-  sample = non_null.iloc[0]
-  return type(sample).__name__   # e.g. 'int', 'float', 'str', 'bool', 'Timestamp'
-
-# Build headers with python type
-headers = [
-  {
-      "columnNumber": i,
-      "columnName": name,
-      "columnDescription": "",
-      "dataType": infer_python_type(df[name]),
-      "relationship": ""
-  }
-  for i, name in enumerate(df.columns)
-]
-
-# Ensure all data is string for output
-cell_df["data"] = cell_df["data"].astype(str)
-
-output = {
-  "headers": headers,
-  "data": cell_df[["recordNumber", "columnNumber", "data"]].to_dict(orient="records")
-}
-
-output_json = json.dumps(output)
-          `,
-          fileContent
-        );
-
-        const jsonResult = safeJsonParse<{
-          headers: ColumnProfile[];
-          data: DataFrame;
-        }>(result);
-
-        if (!jsonResult) throw new Error("Error loading dataframe");
-
-        setDataFrame(jsonResult.data);
-        setColunns(jsonResult.headers);
-      } catch (err) {
-        console.error("Failed to load dataframe:", err);
-      }
-    };
-
-    load();
-  }, [isReady, fileData, executeEmbeddedCode]);
-
-  return { columns, dataFrame, fileData, loading, error, setFileData };
-}
-
 export function useCleanColumnDataTester() {
-  const [cleanedColumnData, setCleanedColumnData] = useState<{columnData: ColumnData, jsonResult?: string} | undefined>();
+  const [context, setContext] = useState<{columnData: ColumnData, jsonResult?: string} | undefined>();
   const {isReady, executeEmbeddedCode} = usePyFunctions();
   const [cleaningCode, setCleaningCode] = useState<string | null>(null);
   const [executeCleaning, setExecuteCleaning] = useState<{toExecute: boolean, params?: Record<string, any>}>({toExecute: false});
 
   useEffect(() => {
-    if (!isReady || !cleanedColumnData || !cleaningCode || !executeCleaning.toExecute) return;
+    if (!isReady || !context || !cleaningCode || !executeCleaning.toExecute) return;
     setExecuteCleaning({ toExecute: false });
 
     (async () => {
-      const contextInput = {
-        column_data: cleanedColumnData,
+      const pyInput = {
+        column_data: context.columnData,
         ...(executeCleaning.params || {})
       };
 
@@ -212,24 +123,25 @@ output_json = json.dumps({
   "error_msg": error_msg
 })
         `,
-        JSON.stringify(contextInput)
+        JSON.stringify(pyInput)
       );
 
       const parsed = safeJsonParse<{ column_data: ColumnData; error_msg: string }>(result);
 
-      if (parsed) {
+      if (!parsed) {
+        setContext({...context, jsonResult: "Python function with undetected error" });
+      }
+      else{
         if (parsed.error_msg === "Success") {
-          setCleanedColumnData({ columnData: parsed.column_data, jsonResult: parsed.error_msg });
+            setContext({ columnData: parsed.column_data, jsonResult: parsed.error_msg });
         } else {
           // Only update jsonResult with error, keep previous columnData intact
-          setCleanedColumnData(prev => prev ? { columnData: prev.columnData, jsonResult: parsed.error_msg } : { columnData: cleanedColumnData?.columnData!, jsonResult: parsed.error_msg });
+          setContext({ columnData: context.columnData, jsonResult: parsed.error_msg });
         }
-      } else {
-        setCleanedColumnData(prev => prev ? { columnData: prev.columnData, jsonResult: "Error executing python code" } : { columnData: cleanedColumnData?.columnData!, jsonResult: "Error executing python code" });
       }
 
     })();
-  }, [isReady, cleanedColumnData, cleaningCode, executeCleaning]);
+  }, [isReady, context, cleaningCode, executeCleaning]);
 
-  return {setCleaningCode, cleanedColumnData, setCleanedColumnData, setExecuteCleaning};
+  return {setCleaningCode, context, setContext, setExecuteCleaning};
 }

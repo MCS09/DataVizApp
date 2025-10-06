@@ -23,6 +23,7 @@ export const getColumnProfile = async (datasetId: number) =>
 export type ColumnsDto = {
   datasetId: number;
   newColumns: ColumnProfile[];
+  columnNamesMap: { oldColumnName: string; newColumnName: string }[];
 };
 
 export const saveColumns = async (body: ColumnsDto) =>
@@ -33,7 +34,7 @@ export const saveColumns = async (body: ColumnsDto) =>
 
 export default function ProfilingPage() {
   const [datasetId, setDatasetId] = useState<number | undefined>();
-  const { columns, setColumns } = useColumns([]);
+  const [columns, setColumns] = useState<{columnHeader: string; columnProfile: ColumnProfile & { oldColumnName?: string }}[]>([]);
   const { sharedState, updateState } = useStore();
   const router = useRouter();
 
@@ -48,6 +49,12 @@ export default function ProfilingPage() {
 
   const updateColumn = (index: number, updatedColumn: ColumnProfile) => {
     const newColumns = [...columns];
+
+    // track old column name if not already tracked
+    if (!newColumns[index].columnProfile.oldColumnName) {
+      newColumns[index].columnProfile.oldColumnName = newColumns[index].columnProfile.columnName;
+    }
+
     newColumns[index].columnProfile = updatedColumn;
     const sorted = newColumns.sort(
       (a, b) => a.columnProfile.columnNumber - b.columnProfile.columnNumber
@@ -68,7 +75,6 @@ export default function ProfilingPage() {
         }));
         return cols;
       }
-      // save datasetId to
     };
 
     const getColumnsAI = () => {
@@ -120,6 +126,10 @@ export default function ProfilingPage() {
               columnDescription: e.columnProfile.columnDescription,
               dataType: e.columnProfile.dataType,
               relationship: e.columnProfile.relationship,
+            })),
+            columnNamesMap: columns.map((c) => ({
+              oldColumnName: c.columnProfile.oldColumnName || c.columnProfile.columnName,
+              newColumnName: c.columnProfile.columnName,
             })),
           });
           if (res) router.push("/data/pipeline/visualization");
