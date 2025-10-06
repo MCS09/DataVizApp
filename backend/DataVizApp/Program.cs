@@ -58,15 +58,6 @@ builder.Services.Configure<AzureAIAgentsOptions>(options =>
 
 builder.Services.AddSingleton<AgentService>();
 
-// Configure Azure Cosmos DB
-builder.Services.AddDbContext<CosmosDbContext>(options =>
-{
-    options.UseCosmos(
-        cosmos_endpoint,
-        cosmos_key,
-        cosmos_dbname);
-});
-
 builder.Services.AddScoped<DatasetService>();
 
 if (builder.Environment.IsDevelopment())
