@@ -82,6 +82,32 @@ const getDatasetDetail = async (userId: string) =>
     }
   );
 
+const deleteDatasetById = async (datasetId: number) => {
+  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
+  if (!backendUrl) return false;
+
+  try {
+    const response = await fetch(
+      `${backendUrl}/api/Dataset/${datasetId}`,
+      {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (response.status === 204 || response.status === 404) {
+      return true;
+    }
+
+    return response.ok;
+  } catch (error) {
+    console.error("Failed to delete dataset:", error);
+    return false;
+  }
+};
+
 export async function loadLatestDataset(userId: string): Promise<Dataset | null> {
   const res = await getDatasetDetail(userId);
   if (!res || res.datasets.length === 0) return null;
@@ -102,6 +128,10 @@ export default function DatasetSelectionPage() {
   const { data: session } = useSession();
   const [latest, setLatest] = useState<Dataset | null>(null);
   const [datasetName, setDatasetName] = useState("");
+  const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = useRouter();
   
   const { dataFrame, setFileData, columns } = useLoadDataFrame();
@@ -181,12 +211,66 @@ export default function DatasetSelectionPage() {
         "sessionFileData",
         JSON.stringify({ datasetId: dataset.datasetId })
       );
+      setSelectedHistoryId(null);
       router.push(ROUTES.datasetProfilingPage);
     } catch (error) {
       console.error("Failed to load dataset for profiling:", error);
       setLoading(false);
     }
   };
+
+  const handleHistoryClick = (datasetId: number) => {
+    setSelectedHistoryId((current) => (current === datasetId ? null : datasetId));
+  };
+
+  const handleDeleteRequest = (datasetId: number) => {
+    setDeleteError(null);
+    setConfirmDeleteId(datasetId);
+  };
+
+  const closeDeleteModal = () => {
+    if (deleteLoading) return;
+    setConfirmDeleteId(null);
+    setDeleteError(null);
+  };
+
+  const confirmDelete = async () => {
+    if (!confirmDeleteId) return;
+
+    const datasetIdToDelete = confirmDeleteId;
+    setDeleteLoading(true);
+    setDeleteError(null);
+
+    const success = await deleteDatasetById(datasetIdToDelete);
+
+    if (!success) {
+      setDeleteError("Failed to delete dataset. Please try again.");
+      setDeleteLoading(false);
+      return;
+    }
+
+    setDatasets((prev) => {
+      const updated = prev.filter((ds) => ds.datasetId !== datasetIdToDelete);
+      if (updated.length > 0) {
+        setLatest(updated[0]);
+      } else {
+        setLatest(null);
+      }
+      return updated;
+    });
+
+    if (selectedHistoryId === datasetIdToDelete) {
+      setSelectedHistoryId(null);
+    }
+
+    setDeleteLoading(false);
+    setConfirmDeleteId(null);
+  };
+
+  const datasetPendingDelete =
+    confirmDeleteId !== null
+      ? datasets.find((ds) => ds.datasetId === confirmDeleteId)
+      : undefined;
 
   const handleUploadSourceChange = (source: "local" | "google") => {
     setUploadSource(source);
@@ -208,6 +292,9 @@ export default function DatasetSelectionPage() {
           const sorted = [...result.datasets].sort((a,b) => b.datasetId - a.datasetId);
           setDatasets(sorted);
           setLatest(sorted[0]);
+        } else {
+          setDatasets([]);
+          setLatest(null);
         }
       } catch (error) {
         console.error("Failed to fetch dataset history:", error);
@@ -264,27 +351,60 @@ export default function DatasetSelectionPage() {
           <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset History</h2>
           <div className="h-[350px] overflow-y-auto pr-2">
               <div className="space-y-3">
-              {datasets.map((dataset, index) => (
-                  <button
-                  key={dataset.datasetId}
-                  onClick={() => handleHistorySelection(dataset)}
-                  className={`w-full flex items-center gap-3 rounded-xl p-4 transition text-left ${
+              {datasets.map((dataset, index) => {
+                const isSelected = selectedHistoryId === dataset.datasetId;
+                return (
+                  <div
+                    key={dataset.datasetId}
+                    className={`w-full rounded-xl border transition ${
                       index === 0
-                      ? "border border-purple-300 bg-purple-50 hover:bg-purple-100"
-                      : "border border-slate-200 bg-white hover:bg-slate-50"
-                  }`}
+                        ? "border-purple-300 bg-purple-50 hover:bg-purple-100"
+                        : "border-slate-200 bg-white hover:bg-slate-50"
+                    }`}
                   >
-                  <div className="flex-1">
-                      <p className={`font-semibold ${index === 0 ? "text-purple-800" : "text-slate-800"}`}>
-                      {dataset.datasetName || "Untitled Dataset"}
-                      </p>
-                      <p className="text-sm text-slate-600">ID: {dataset.datasetId}</p>
+                    <button
+                      type="button"
+                      onClick={() => handleHistoryClick(dataset.datasetId)}
+                      className="flex w-full items-center gap-3 rounded-xl p-4 text-left"
+                    >
+                      <div className="flex-1">
+                        <p
+                          className={`font-semibold ${
+                            index === 0 ? "text-purple-800" : "text-slate-800"
+                          }`}
+                        >
+                          {dataset.datasetName || "Untitled Dataset"}
+                        </p>
+                        <p className="text-sm text-slate-600">ID: {dataset.datasetId}</p>
+                      </div>
+                      {index === 0 && (
+                        <span className="rounded-full bg-purple-200 px-2 py-1 text-xs text-purple-700">
+                          Latest
+                        </span>
+                      )}
+                    </button>
+
+                    {isSelected && (
+                      <div className="flex gap-3 border-t border-slate-200 px-4 py-3">
+                        <button
+                          type="button"
+                          className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+                          onClick={() => handleHistorySelection(dataset)}
+                        >
+                          Apply to Profiling
+                        </button>
+                        <button
+                          type="button"
+                          className="flex-1 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                          onClick={() => handleDeleteRequest(dataset.datasetId)}
+                        >
+                          Delete Dataset
+                        </button>
+                      </div>
+                    )}
                   </div>
-                  {index === 0 && (
-                      <span className="px-2 py-1 text-xs rounded-full bg-purple-200 text-purple-700">Latest</span>
-                  )}
-                  </button>
-              ))}
+                );
+              })}
               </div>
           </div>
         </div>
@@ -326,6 +446,42 @@ export default function DatasetSelectionPage() {
           <div className="flex flex-col items-center">
             <div className="animate-spin h-10 w-10 border-4 border-purple-500 border-t-transparent rounded-full"></div>
             <p className="mt-4 text-lg font-medium text-slate-700">Preparing profiling...</p>
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-slate-900">Delete dataset?</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              {datasetPendingDelete?.datasetName || "This dataset"} (ID {confirmDeleteId}) will be permanently removed. You will not be able to access it for profiling or visualization later.
+            </p>
+
+            {deleteError && (
+              <p className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600">
+                {deleteError}
+              </p>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-60"
+                onClick={closeDeleteModal}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-60"
+                onClick={confirmDelete}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? "Deleting..." : "Delete"}
+              </button>
+            </div>
           </div>
         </div>
       )}
