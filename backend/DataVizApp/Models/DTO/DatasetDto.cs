@@ -3,6 +3,7 @@ namespace DataVizApp.Models.DTO;
 public record DatasetDto
 {
     public required string UserId { get; set; }
+    public required List<DatasetColumnDto> Columns { get; set; }
     public required string DatasetName { get; set; }
 }
 
