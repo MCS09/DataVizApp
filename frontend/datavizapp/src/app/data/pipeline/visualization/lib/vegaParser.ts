@@ -1,5 +1,6 @@
 import type { AIColumnsProfileContext } from "../data";
 
+// A helper function to safely parse JSON
 const rowsFromColumns = (data: AIColumnsProfileContext) => {
   const rows: Record<string, string | number>[] = [];
   for (const col of data) {
@@ -12,8 +13,7 @@ const rowsFromColumns = (data: AIColumnsProfileContext) => {
   return rows;
 };
 
-
-
+// Convert AIColumnsProfileContext to a basic Vega-Lite spec
 export const vegaSpecConverter = (data: AIColumnsProfileContext) => {
   const values = rowsFromColumns(data);
   return {
