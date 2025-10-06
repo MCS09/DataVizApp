@@ -4,8 +4,7 @@ import { auth } from '@/app/auth';
 import { ROUTES } from '@/constants/routes';
 import type { UserDatasetsDto } from '@/lib/dataset';
 
-import NavBar from '../components/navbar';
-import DashboardCard from './components/DashboardCard';
+import DashboardManager from './components/DashboardManager';
 
 type Visualization = {
   id: string;
@@ -67,38 +66,10 @@ export default async function DashboardPage() {
   return (
     <>
       <main className="pt-32 pb-20 px-4">
-        <div className="max-w-7xl mx-auto">
-          <h1 className="text-4xl font-bold text-center mb-12">Your Dashboard</h1>
+        <div className="mx-auto max-w-7xl">
+          <h1 className="mb-12 text-center text-4xl font-bold">Your Dashboard</h1>
 
-          {visualizations.length === 0 && (
-            <div className="mb-10 rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-slate-600">
-              No datasets found yet. Upload a dataset from the Data Selection page to see it here.
-            </div>
-          )}
-
-          <section className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-12">
-            {visualizations.map((v) => (
-              <DashboardCard
-                key={v.id}
-                id={v.id}
-                title={v.title}
-                fileName={v.fileName}
-                timeAgo={v.timeAgo}
-              />
-            ))}
-
-            <a
-              href="/data"
-              className="flex items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 p-6 text-center transition hover:border-purple-500 hover:bg-purple-50"
-            >
-              <div>
-                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-purple-100 text-purple-600">
-                  +
-                </div>
-                <p className="font-medium text-slate-700">Create New Visualization</p>
-              </div>
-            </a>
-          </section>
+          <DashboardManager initialVisualizations={visualizations} />
         </div>
       </main>
     </>
