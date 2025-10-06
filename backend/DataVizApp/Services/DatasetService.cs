@@ -11,15 +11,15 @@ using Microsoft.Azure.Cosmos;
 using Microsoft.Azure.Cosmos.Linq;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.DependencyInjection;
+using static DataVizApp.Controllers.DatasetController;
 
 namespace DataVizApp.Services
 {
-    public class DatasetService(AppDbContext appDbContext, CosmosDbContext cosmosDbContext, AgentService agentService, IServiceScopeFactory scopeFactory)
+    public class DatasetService(AppDbContext appDbContext, AgentService agentService, IServiceScopeFactory scopeFactory)
     {
 
 
         private readonly AppDbContext _appDbContext = appDbContext;
-        private readonly CosmosDbContext _cosmosDbContext = cosmosDbContext;
 
         private readonly AgentService _agentService = agentService;
 
@@ -111,7 +111,10 @@ namespace DataVizApp.Services
             }
 
             // Ensure no duplicate column names
-            if (columns.GroupBy(c => c.ColumnName).Any(g => g.Count() > 1))
+            if (await _appDbContext.DatasetColumns
+                .Where(c => c.DatasetId == datasetId)
+                .GroupBy(c => c.ColumnName)
+                .AnyAsync(g => g.Count() > 1))
             {
                 throw new ArgumentException("Duplicate column names are not allowed for a dataset.");
             }
@@ -133,16 +136,16 @@ namespace DataVizApp.Services
             return true;
         }
 
-        // Cosmos DatasetRecord Methods
+        // Updated to use DatasetRecord from AppDbContext (SQL)
 
-        public async Task<List<DataRecord>> GetColumnDataByIdAsync(int datasetId, int columnNumber)
+        public async Task<List<DatasetRecord>> GetColumnDataByIdAsync(int datasetId, int columnNumber)
         {
-            return await _cosmosDbContext.DataRecords
+            return await _appDbContext.DatasetRecords
                 .Where(r => r.DatasetId == datasetId && r.ColumnNumber == columnNumber)
                 .ToListAsync();
         }
 
-        public async Task<(DatasetColumn, List<DataRecord>)> GetColumnDataByNameAsync(int datasetId, string columnName)
+        public async Task<(DatasetColumn, List<DatasetRecord>)> GetColumnDataByNameAsync(int datasetId, string columnName)
         {
             // find column number first
             DatasetColumn column = await _appDbContext.DatasetColumns
@@ -150,14 +153,14 @@ namespace DataVizApp.Services
                 .FirstOrDefaultAsync(c => c.DatasetId == datasetId && c.ColumnName == columnName)
                 ?? throw new Exception("Column not found");
 
-            return (column, await _cosmosDbContext.DataRecords
+            return (column, await _appDbContext.DatasetRecords
                 .Where(r => r.DatasetId == datasetId && r.ColumnNumber == column.ColumnNumber)
                 .ToListAsync());
         }
 
-        public async Task<List<DataRecord>> GetColumnDataByIdAsync(int datasetId, int columnNumber, int count)
+        public async Task<List<DatasetRecord>> GetColumnDataByIdAsync(int datasetId, int columnNumber, int count)
         {
-            return await _cosmosDbContext.DataRecords
+            return await _appDbContext.DatasetRecords
                 .Where(r => r.DatasetId == datasetId && r.ColumnNumber == columnNumber)
                 .Take(count)
                 .ToListAsync();
@@ -172,96 +175,24 @@ namespace DataVizApp.Services
                 .ToListAsync();
         }
 
-
-        public async Task<bool> SetColumnDataAsyncOld(int datasetId, int columnNumber, List<RecordValueDto> recordDtos)
+        public async Task<bool> DeleteDatasetRecordByColumnAsync(int datasetId, int columnNumber)
         {
-
-            // Map each DataRecordDto to a Record object
-            List<DataRecord> newRecords = recordDtos.Select(e => new DataRecord
-            {
-                Id = $"{datasetId}-{columnNumber}-{e.RecordNumber}",
-                DatasetId = datasetId,
-                ColumnNumber = columnNumber,
-                RecordNumber = e.RecordNumber,
-                Value = e.Value
-            }).ToList();
-
-            var existingRecords = await _cosmosDbContext.DataRecords
+            // Remove existing records for the datasetId and columnNumber
+            var existingRecords = await _appDbContext.DatasetRecords
                 .Where(r => r.DatasetId == datasetId && r.ColumnNumber == columnNumber)
                 .ToListAsync();
 
-            _cosmosDbContext.DataRecords.RemoveRange(existingRecords);
-
-            await _cosmosDbContext.DataRecords.AddRangeAsync(newRecords);
-            await _cosmosDbContext.SaveChangesAsync();
+            _appDbContext.DatasetRecords.RemoveRange(existingRecords);
+            await _appDbContext.SaveChangesAsync();
             return true;
         }
 
-        public async Task<bool> SetColumnDataAsync(int datasetId, int columnNumber, List<RecordValueDto> recordDtos)
+        public async Task AddDatasetRecordAsync(DatasetRecord[] datasetRecord)
         {
-            Container container = _cosmosDbContext.Database.GetCosmosClient()
-                .GetContainer(_cosmosDbContext.Database.GetCosmosDatabaseId(), _cosmosDbContext.DataRecords.EntityType.GetContainer());
-
-            // Map DTOs to DataRecord objects
-            List<DataRecord> newRecords = recordDtos.Select(e => new DataRecord
-            {
-                Id = $"{datasetId}-{columnNumber}-{e.RecordNumber}",
-                DatasetId = datasetId,
-                ColumnNumber = columnNumber,
-                RecordNumber = e.RecordNumber,
-                Value = e.Value
-            }).ToList();
-
-            // Query existing records
-            var existingRecordsIterator = container.GetItemLinqQueryable<DataRecord>(true)
-                .Where(r => r.DatasetId == datasetId && r.ColumnNumber == columnNumber)
-                .ToFeedIterator();
-
-            List<DataRecord> existingRecords = new();
-            while (existingRecordsIterator.HasMoreResults)
-            {
-                var response = await existingRecordsIterator.ReadNextAsync();
-                existingRecords.AddRange(response.Resource);
-            }
-
-            // Delete existing records in parallel
-            var deleteTasks = existingRecords.Select(r =>
-                container.DeleteItemAsync<DataRecord>(r.Id, new PartitionKey(r.DatasetId))
-            );
-            await Task.WhenAll(deleteTasks);
-
-            // Throttle inserts using SemaphoreSlim
-            SemaphoreSlim throttler = new SemaphoreSlim(5); // max 5 concurrent inserts
-            List<Task> insertTasks = new();
-
-            foreach (var record in newRecords)
-            {
-                await throttler.WaitAsync();
-
-                insertTasks.Add(Task.Run(async () =>
-                {
-                    try
-                    {
-                        await container.CreateItemAsync(record, new PartitionKey(record.DatasetId));
-                    }
-                    catch (CosmosException ex) when (ex.StatusCode == System.Net.HttpStatusCode.TooManyRequests)
-                    {
-                        // Wait for the recommended retry time
-                        await Task.Delay(ex.RetryAfter ?? TimeSpan.FromSeconds(1));
-                        await container.CreateItemAsync(record, new PartitionKey(record.DatasetId));
-                    }
-                    finally
-                    {
-                        throttler.Release();
-                    }
-                }));
-            }
-
-            await Task.WhenAll(insertTasks);
-
-            return true;
+            // Add all provided records
+            await _appDbContext.DatasetRecords.AddRangeAsync(datasetRecord);
+            await _appDbContext.SaveChangesAsync();
         }
-
 
 
         public async Task<string> GetAgentThreadAsync(int datasetId, string workflowStageName)
@@ -280,14 +211,64 @@ namespace DataVizApp.Services
 
         public async Task<List<ColumnValueDto>> GetRecordAsync(int datasetId, int recordNumber)
         {
-            var records = await _cosmosDbContext.DataRecords
+            var records = await _appDbContext.DatasetRecords
                 .Where(r => r.DatasetId == datasetId && r.RecordNumber == recordNumber)
                 .AsNoTracking()
                 .ToListAsync();
 
-            return [.. records
+            return records
                 .OrderBy(r => r.ColumnNumber)
-                .Select(r => new ColumnValueDto(r.ColumnNumber, r.Value))];
+                .Select(r => new ColumnValueDto(r.ColumnNumber, r.Value))
+                .ToList();
+        }
+
+        public async Task UpdateColumnsAsync(int datasetId, List<DatasetColumnDto> newColumns, List<ColumnNameMapDto> columnNamesMap)
+        {
+            // 1. Fetch existing columns for the dataset
+            var existingColumns = await _appDbContext.DatasetColumns
+                .Where(c => c.DatasetId == datasetId)
+                .ToListAsync();
+
+            if (!existingColumns.Any())
+                throw new Exception("No existing columns found for this dataset.");
+
+            
+            // 2. Verify that all old column names exist
+            var missingColumns = columnNamesMap
+                .Where(m => !existingColumns.Any(c => c.ColumnName == m.OldColumnName))
+                .Select(m => m.OldColumnName)
+                .ToList();
+
+            if (missingColumns.Any())
+                throw new Exception($"Cannot update. The following old columns were not found: {string.Join(", ", missingColumns)}");
+
+            // 2. Apply column renames according to ColumnNamesMap
+            foreach (var (oldName, newName) in columnNamesMap)
+            {
+                var column = existingColumns.FirstOrDefault(c => c.ColumnName == oldName);
+                if (column != null)
+                {
+                    column.ColumnName = newName; // rename
+                }
+            }
+
+            // 3. Update other properties or add new columns
+            foreach (var newCol in newColumns)
+            {
+                // Try to match with renamed columns
+                var existing = existingColumns.FirstOrDefault(c => columnNamesMap.Any(m => m.NewColumnName == newCol.ColumnName && c.ColumnName == newCol.ColumnName));
+                if (existing != null)
+                {
+                    // Update other properties
+                    existing.ColumnDescription = newCol.ColumnDescription;
+                    existing.DataType = newCol.DataType;
+                    existing.ColumnNumber = newCol.ColumnNumber;
+                    existing.Relationship = newCol.Relationship;
+                }
+            }
+
+            // 4. Save changes
+            await _appDbContext.SaveChangesAsync();
         }
     }
 }
