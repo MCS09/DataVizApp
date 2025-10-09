@@ -282,43 +282,48 @@ export default function DataPagesLayout({
         </button>
 
         {/* Chat content area */}
+        <div 
+          ref={chatContainerRef}
+          className="flex-1 overflow-y-auto p-4 bg-base-200 rounded-lg"
+          style={{
+            opacity: isChatCollapsed ? 0 : 1,
+            pointerEvents: isChatCollapsed ? "none" : "auto",
+            transition: "opacity 0.3s ease",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
+          {dynamicContent}
+        </div>
+
+        {/* Input bar at the bottom */}
         {!isChatCollapsed && (
-          <>
-            {/* Chat history area */}
-            <div 
-              ref={chatContainerRef}
-              className="flex-1 overflow-y-auto p-4 bg-base-200 rounded-lg">
-
-              {dynamicContent}
-            </div>
-
-            {/* Input bar at the bottom */}
-            <div className="p-2 bg-base-100">
-              <input
-                type="text"
-                placeholder="Type here"
-                className="input w-10/12"
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-              />
-              {!sentPrompt && 
-              <Button
-                label="Send"
-                className="btn w-2/12"
-                action={async () => {
-                  if (prompt.trim()) {
-                    setSentPrompt(prompt);
-                    setChatHistory((prev) => [
-                      ...prev,
-                      { message: prompt, role: "user", isStart: false },
-                    ]);
-                    setPrompt("");
-                  }
-                }}
-              />
-              }
-            </div>
-          </>
+          <div className="p-2 bg-base-100">
+            <input
+              type="text"
+              placeholder="Type here"
+              className="input w-10/12"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
+            {!sentPrompt && 
+            <Button
+              label="Send"
+              className="btn w-2/12"
+              action={async () => {
+                if (prompt.trim()) {
+                  setSentPrompt(prompt);
+                  setChatHistory((prev) => [
+                    ...prev,
+                    { message: prompt, role: "user", isStart: false },
+                  ]);
+                  setPrompt("");
+                }
+              }}
+            />
+            }
+          </div>
         )}
         {isChatCollapsed && (
           <div

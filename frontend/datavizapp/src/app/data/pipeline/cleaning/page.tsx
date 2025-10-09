@@ -599,6 +599,12 @@ for record in column_data.get("dataRecords", []):
           label="Save to DB"
           action={saveColumnData}
         />
+        <Button
+          label="Reset Changes"
+          action={() => {
+            setContext( masterState.columnData ? { columnData: masterState.columnData } : context);
+          }}
+        />
       </div>
     );
   };

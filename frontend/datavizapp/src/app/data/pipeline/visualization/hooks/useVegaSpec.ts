@@ -14,15 +14,21 @@ type Args = {
 };
 
 export function useVegaSpec({ width, ratio, theme, maxWidth, maxHeight }: Args) {
-  const [aiColumnsProfileContext, setAIColumnsProfileContext] = useState(sampleAIColumnsProfileContext);
-  const [baseSpec, setBaseSpec] = useState(vegaSpecConverter(aiColumnsProfileContext));
+  const [aiColumnsProfileContext, setAIColumnsProfileContext] = useState(
+    sampleAIColumnsProfileContext
+  );
+  const [baseSpec, setBaseSpec] = useState(
+    vegaSpecConverter(aiColumnsProfileContext)
+  );
 
   useEffect(() => {
     setBaseSpec(vegaSpecConverter(aiColumnsProfileContext));
   }, [aiColumnsProfileContext]);
 
   const height = useMemo(() => {
-    if (ratio === "original") return undefined;
+    if (ratio === "original") {
+      return "container";
+    }
     const [w, h] = ratio.split(":").map(Number);
     const calcHeight = Math.round((width * h) / w);
     return Math.min(calcHeight, maxHeight);
@@ -30,29 +36,54 @@ export function useVegaSpec({ width, ratio, theme, maxWidth, maxHeight }: Args) 
 
   const clampedWidth = Math.min(width, maxWidth);
 
-
-
   const spec = useMemo(() => {
     const colorField =
       baseSpec.encoding?.x?.field ||
       baseSpec.encoding?.y?.field ||
       "firstName";
 
+    // Handle "original" ratio by setting dimensions to fill the container.
+    // For all other ratios, use the explicitly calculated pixel values.
+    const dimensions =
+      ratio === "original"
+        ? {
+            width: "container",
+            height: "container",
+          }
+        : {
+            width: clampedWidth,
+            ...(height ? { height } : {}),
+          };
+
     return {
       ...toPlain(baseSpec),
       $schema: "https://vega.github.io/schema/vega-lite/v5.json",
       width: clampedWidth,
       ...(height ? { height } : {}),
-      encoding: {
-        ...baseSpec.encoding,
+      // encoding: {
+      //   ...baseSpec.encoding,
+      //   color: {
+      //     field: colorField,
+      //     type: "nominal",
+      //     scale: { scheme: theme },
+      //   },
+      // },
+       encoding: {
+        ...(baseSpec.encoding ?? {}), // keep all existing encodings
         color: {
-          field: colorField,
-          type: "nominal",
-          scale: { scheme: theme },
-        },
-      },
+          ...(baseSpec.encoding && "color" in baseSpec.encoding ? (baseSpec.encoding.color as object) : {}), // keep existing color field/type if exists
+          scale: { scheme: theme },            // override/add just the scheme
+        }
+      }
     };
-  }, [baseSpec, clampedWidth, height, theme]);
+  }, [baseSpec, clampedWidth, height, theme, ratio]); // Added 'ratio' to dependency array
 
-  return { setBaseSpec, setAIColumnsProfileContext, baseSpec, spec, clampedWidth, height };
+  return {
+    setBaseSpec,
+    setAIColumnsProfileContext,
+    baseSpec,
+    spec,
+    clampedWidth,
+    height,
+  };
 }

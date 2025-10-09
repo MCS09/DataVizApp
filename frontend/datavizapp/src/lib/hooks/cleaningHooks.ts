@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { usePyodide } from "./usePyodide";
 import { FileData } from "../dataset";
 import { safeJsonParse } from "../api";
-import { ColumnProfile } from "@/app/data/pipeline/profiling/components/CarouselItem";
+import { ColumnProfile } from "@/app/components/input/Fieldset";
 
 // Like xlsx [{DataCell}] and each data cell
 export type DataFrame = DataCell[];
@@ -83,6 +83,9 @@ output_json
 
   return { loading, error, isReady, executeEmbeddedCode };
 }
+
+// Define a new type that can be either a Google Drive source or a local File
+type FileDataSource = FileData | File;
 
 export function useCleanColumnDataTester() {
   const [context, setContext] = useState<{columnData: ColumnData, jsonResult?: string} | undefined>();
