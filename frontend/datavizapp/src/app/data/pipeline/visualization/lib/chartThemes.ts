@@ -14,4 +14,4 @@ export const chartThemes = {
     scheme: "pastel2",
     colors: ["#fbb4ae", "#b3cde3", "#ccebc5"],
   },
-} as const;
+}
