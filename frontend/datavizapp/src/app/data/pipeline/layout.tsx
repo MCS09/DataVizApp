@@ -141,14 +141,17 @@ export default function DataPagesLayout({
     }
   }, []);
 
-  useEffect(() => {
-    if (!datasetId) return;
-    (async () => {
-      const workflowStageName = getWorkflowStageName(pathname);
-      const res = await getThreadId({ datasetId, workflowStageName })
-      setThreadId(res);
-    })();
-  }, [datasetId, pathname]);
+useEffect(() => {
+  // Reset chat and thread state when pathname changes before fetching new thread
+  setThreadId("");
+  setChatHistory([]);
+  if (!datasetId) return;
+  (async () => {
+    const workflowStageName = getWorkflowStageName(pathname);
+    const res = await getThreadId({ datasetId, workflowStageName })
+    setThreadId(res);
+  })();
+}, [datasetId, pathname]);
 
   useEffect(() => {
     const fetchChatHistory = async () => {
@@ -202,7 +205,7 @@ export default function DataPagesLayout({
     };
 
     fetchChatHistory();
-  }, [threadId, chatHistory]);
+  }, [threadId, chatHistory, pathname]);
 
   useEffect(() => {
     if (!threadId || !sentPrompt) return;

@@ -180,11 +180,6 @@ export default function CleaningPage() {
     currentSubTab?: string;
   }
 
-  const UILocationsMap = {
-    "Single Column Operations": ["Select Column", "View Record", "Transform Column", "Column Summary"],
-    "Multi-Column Operations": ["Unknown"]
-  }
-
   // --- New state for column summary/statistics ---
   type NumericSummary = {
     type: "numeric";
