@@ -8,6 +8,7 @@ import useStore from "@/lib/store";
 import { usePathname } from "next/navigation";
 import { JSX, useEffect, useRef, useState } from "react";
 
+
 type ChatHistoryRequestDto = {
   role: string;
   text: string;
@@ -123,6 +124,7 @@ export default function DataPagesLayout({
   const [datasetId, setDatasetId] = useState<number>();
   const [dynamicContent, setDynamicContent] = useState<JSX.Element | null>(null);
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Get the prompts for the current route
   const suggestionPrompts = SUGGESTION_PROMPTS_BY_ROUTE[pathname] || [];
@@ -143,6 +145,7 @@ export default function DataPagesLayout({
 
 useEffect(() => {
   // Reset chat and thread state when pathname changes before fetching new thread
+  setIsLoading(true);
   setThreadId("");
   setChatHistory([]);
   if (!datasetId) return;
@@ -199,8 +202,12 @@ useEffect(() => {
             }
           }
         }
+        setIsLoading(false);
       } catch (error) {
+        setIsLoading(false);
         console.error("Failed to fetch chat history:", error);
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -232,12 +239,25 @@ useEffect(() => {
 
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      setTimeout(() => {
+        chatContainerRef.current?.scrollTo({
+          top: chatContainerRef.current.scrollHeight,
+          behavior: "smooth"
+        });
+      }, 100);
     }
   }, [chatHistory]);
 
   useEffect(() => {
-    if (chatHistory.length === 0 && suggestionPrompts.length > 0) {
+    if (isLoading) {
+      setDynamicContent(
+        <div className="flex justify-center items-center h-full">
+          <span className="loading loading-spinner loading-lg text-white"></span>
+        </div>
+      );
+      return;
+    }
+    if (chatHistory.length == 0 && suggestionPrompts.length > 0 && !isLoading) {
       setDynamicContent(
         <div className="flex flex-col items-center justify-center h-full text-center">
           <h2 className="text-xl font-semibold mb-2">AI Assistant</h2>
@@ -266,93 +286,109 @@ useEffect(() => {
         </>
       );
     }
-  }, [chatHistory, suggestionPrompts, pathname]);
+  }, [chatHistory]);
 
   return (
-    <div className="flex">
-      <div
-        style={{ width: isChatCollapsed ? "40px" : "30%", backgroundColor: "lightgray", transition: "width 0.3s ease" }}
-        className="h-[600px] flex flex-col"
-      >
-        {/* Toggle button at the top */}
-        <button
-          className="btn btn-xs m-1 self-end"
-          onClick={() => setIsChatCollapsed(!isChatCollapsed)}
-          aria-label={isChatCollapsed ? "Expand chat panel" : "Collapse chat panel"}
-          title={isChatCollapsed ? "Expand chat panel" : "Collapse chat panel"}
+    <div className="flex flex-col min-h-[600px]">
+      <div className="flex flex-1">
+        <div
+          style={{ width: isChatCollapsed ? "40px" : "30%", backgroundColor: "lightgray", transition: "width 0.3s ease" }}
+          className="h-[600px] flex flex-col"
         >
-          {isChatCollapsed ? "▶" : "◀"}
-        </button>
+          {/* Toggle button at the top */}
+          <button
+            className="btn btn-xs m-1 self-end"
+            onClick={() => setIsChatCollapsed(!isChatCollapsed)}
+            aria-label={isChatCollapsed ? "Expand chat panel" : "Collapse chat panel"}
+            title={isChatCollapsed ? "Expand chat panel" : "Collapse chat panel"}
+          >
+            {isChatCollapsed ? "▶" : "◀"}
+          </button>
 
-        {/* Chat content area */}
-        <div 
-          ref={chatContainerRef}
-          className="flex-1 overflow-y-auto p-4 bg-base-200 rounded-lg"
-          style={{
-            opacity: isChatCollapsed ? 0 : 1,
-            pointerEvents: isChatCollapsed ? "none" : "auto",
-            transition: "opacity 0.3s ease",
-            height: "100%",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          {dynamicContent}
-        </div>
-
-        {/* Input bar at the bottom */}
-        {!isChatCollapsed && (
-          <div className="p-2 bg-base-100">
-            <input
-              type="text"
-              placeholder="Type here"
-              className="input w-10/12"
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-            />
-            {!sentPrompt && 
-            <Button
-              label="Send"
-              className="btn w-2/12"
-              action={async () => {
-                if (prompt.trim()) {
-                  setSentPrompt(prompt);
-                  setChatHistory((prev) => [
-                    ...prev,
-                    { message: prompt, role: "user", isStart: false },
-                  ]);
-                  setPrompt("");
-                }
-              }}
-            />
-            }
-          </div>
-        )}
-        {isChatCollapsed && (
-          <div
+          {/* Chat content area */}
+          <div 
+            ref={chatContainerRef}
+            className="flex-1 overflow-y-auto p-4 bg-base-200 rounded-lg"
             style={{
-              writingMode: "vertical-rl",
-              transform: "rotate(180deg)",
-              flexGrow: 1,
-              display: "flex",
-              justifyContent: "center",
-              alignItems: "center",
-              fontWeight: "bold",
-              fontSize: "14px",
-              color: "#333",
-              userSelect: "none",
+              opacity: isChatCollapsed ? 0 : 1,
+              pointerEvents: isChatCollapsed ? "none" : "auto",
+              transition: "opacity 0.3s ease",
               height: "100%",
+              display: "flex",
+              flexDirection: "column",
             }}
           >
-            Chat Minimized
+            {
+              isLoading ? (
+                <div className="flex justify-center items-center h-full">
+                  <span className="loading loading-spinner loading-lg text-white"></span>
+                </div>
+              ) : (
+                dynamicContent
+              )
+            }
           </div>
-        )}
-      </div>
-      <div
-        className="ag-theme-alpine"
-        style={{ height: "600px", width: isChatCollapsed ? `calc(100% - 40px)` : "70%" }}
-      >
-        {children}
+
+          {/* Input bar at the bottom */}
+          {!isChatCollapsed && (
+            <div className="p-2 bg-base-100">
+              <input
+                type="text"
+                placeholder="Type here"
+                className="input w-10/12"
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+              />
+              {!sentPrompt && 
+              <Button
+                label="Send"
+                className="btn w-2/12"
+                action={async () => {
+                  if (prompt.trim()) {
+                    setSentPrompt(prompt);
+                    setChatHistory((prev) => [
+                      ...prev,
+                      { message: prompt, role: "user", isStart: false },
+                    ]);
+                    // Scroll to bottom after new message is added
+                    if (chatContainerRef.current) {
+                      setTimeout(() => {
+                        chatContainerRef.current!.scrollTop = chatContainerRef.current!.scrollHeight;
+                      }, 100);
+                    }
+                    setPrompt("");
+                  }
+                }}
+              />
+              }
+            </div>
+          )}
+          {isChatCollapsed && (
+            <div
+              style={{
+                writingMode: "vertical-rl",
+                transform: "rotate(180deg)",
+                flexGrow: 1,
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                fontWeight: "bold",
+                fontSize: "14px",
+                color: "#333",
+                userSelect: "none",
+                height: "100%",
+              }}
+            >
+              Chat Minimized
+            </div>
+          )}
+        </div>
+        <div
+          className="ag-theme-alpine flex-1"
+          style={{ height: "600px", width: isChatCollapsed ? `calc(100% - 40px)` : "70%" }}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

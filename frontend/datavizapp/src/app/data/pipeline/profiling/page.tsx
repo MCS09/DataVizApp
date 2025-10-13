@@ -7,7 +7,6 @@ import { useColumns, Column } from "@/lib/hooks/useColumns";
 import useStore from "@/lib/store";
 import { AIResponse } from "../layout";
 import Button from "@/app/components/input/Button";
-import { useRouter } from "next/navigation";
 
 // Get Column Profile
 export const getColumnProfile = async (datasetId: number) =>
@@ -39,7 +38,6 @@ export default function ProfilingPage() {
     { columnHeader: string; columnProfile: ColumnProfile & { oldColumnName?: string } }[]
   >([]);
   const { sharedState, updateState } = useStore();
-  const router = useRouter();
 
   // Load datasetId (From session storage)
   useEffect(() => {
@@ -105,15 +103,14 @@ export default function ProfilingPage() {
       {/* Column List */}
       <ColumnProfileList columns={columns} updateColumn={updateColumn} />
 
-      {/* Continue Button */}
+      {/* Save Button */}
       <div className="flex justify-end p-4 border-t border-base-300">
         <Button
-          label={"Continue to Cleaning"}
+          label={"Save Changes"}
           className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl glow font-semibold disabled:opacity-50"
           action={async () => {
             if (!datasetId) return;
-
-            const res = await saveColumns({
+            await saveColumns({
               datasetId: datasetId,
               newColumns: columns.map((e) => ({
                 columnNumber: e.columnProfile.columnNumber,
@@ -128,8 +125,6 @@ export default function ProfilingPage() {
                 newColumnName: c.columnProfile.columnName,
               })),
             });
-
-            if (res) router.push("/data/pipeline/visualization");
           }}
         />
       </div>

@@ -15,6 +15,7 @@ import React, { useRef } from "react";
 import { VisualizationSpec } from "vega-embed";
 import useStore from "@/lib/store";
 import { AIResponse } from "../layout";
+import { useRouter } from "next/navigation";
 
 const ColumnDistributionChart = ({ columnData }: { columnData: ColumnData | undefined }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -160,6 +161,7 @@ export default function CleaningPage() {
   });
   const {setCleaningCode, context, setContext, setExecuteCleaning} = useCleanColumnDataTester();
   const { sharedState, updateState } = useStore();
+  const router = useRouter();
 
   type SendToAIContext = {
     minifiedColumnData: { recordNumber: number; oldValue: string; newValue: string }[];
@@ -853,6 +855,7 @@ for record in column_data.get("dataRecords", []):
       <div className="tab-content bg-base-100 border-base-300 p-6">
 
       </div>
+      
     </div>
   );
 }
