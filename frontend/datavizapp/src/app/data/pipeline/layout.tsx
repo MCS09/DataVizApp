@@ -7,6 +7,7 @@ import { fetchData, safeJsonParse } from "@/lib/api";
 import useStore from "@/lib/store";
 import { usePathname } from "next/navigation";
 import { JSX, useEffect, useRef, useState } from "react";
+import { TypingIndicator } from "@/app/components/ai/TypingIndicator";
 
 
 type ChatHistoryRequestDto = {
@@ -35,6 +36,7 @@ const getThreadId = async ({ datasetId, workflowStageName }: {
   return res.threadId;
 }
 
+
 const getChatHistory = async (threadId: string) => {
   const res = await fetchData<{messageDtos: ChatHistoryRequestDto[]}>(
     `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/AgentChat/getChatHistoryById?ThreadId=${threadId}`
@@ -45,9 +47,9 @@ const getChatHistory = async (threadId: string) => {
 
 
 // prompt agent
-const promptAgent = async (reqBody : {threadId: string, agentId: number, text: string}) => {
-  try{
-    await fetchData<{message: string}>(
+const promptAgent = async (reqBody : {threadId: string, agentId: number, text: string}) => 
+
+    await fetch(
       `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/AgentChat/prompt`,
       {
         method: "POST",
@@ -57,12 +59,8 @@ const promptAgent = async (reqBody : {threadId: string, agentId: number, text: s
         body: JSON.stringify(reqBody),
       }
     );
-  }catch(e){
-    console.warn(`Error in promptAgent: ${e}`);
-    return false;
-  }
-  return true;
-}
+  
+
 
 
 // Map to workflow stage
@@ -101,7 +99,8 @@ const SUGGESTION_PROMPTS_BY_ROUTE: { [key: string]: string[] } = {
     "Find possible primary keys",
   ],
   [ROUTES.datasetCleaningPage]: [
-    // TODO: Add prompts
+    "Suggest a cleaning operation for this column",
+    "What does the summary statistics tell me about this column?"
   ],
   [ROUTES.datasetVisualizationPage]: [
     // TODO: Add prompts
@@ -122,12 +121,32 @@ export default function DataPagesLayout({
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const { sharedState, updateState } = useStore();
   const [datasetId, setDatasetId] = useState<number>();
-  const [dynamicContent, setDynamicContent] = useState<JSX.Element | null>(null);
   const [isChatCollapsed, setIsChatCollapsed] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [suggestionPrompts, setSuggestionPrompts] = useState<string[]>([]);
 
-  // Get the prompts for the current route
-  const suggestionPrompts = SUGGESTION_PROMPTS_BY_ROUTE[pathname] || [];
+  const resetChat = async ({ datasetId, workflowStageName }: {
+  datasetId: number;
+  workflowStageName: string;
+  }) =>{
+    await fetchData(
+      `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/resetChat?DatasetId=${datasetId}&WorkflowStageName=${workflowStageName}`
+    );
+    setIsLoading(true);
+    setThreadId("");
+    setChatHistory([]);
+    if (!datasetId) return;
+    (async () => {
+      const workflowStageName = getWorkflowStageName(pathname);
+      const res = await getThreadId({ datasetId, workflowStageName })
+      setThreadId(res);
+    })();
+
+  }
+
+  useEffect(() => {
+    setSuggestionPrompts(SUGGESTION_PROMPTS_BY_ROUTE[pathname] || []);
+  }, [pathname]);
 
   const handleSuggestionClick = (suggestion: string) => {
     // Set the prompt to be sent to the AI
@@ -136,83 +155,97 @@ export default function DataPagesLayout({
 
   // load datasetId (From session store)
   useEffect(() => {
-    const stored = sessionStorage.getItem("sessionFileData");
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      setDatasetId(parsed.datasetId);
-    }
-  }, []);
+    (async () => {
+      const stored = sessionStorage.getItem("sessionFileData");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        setDatasetId(parsed.datasetId);
+      }
+    })();
+  }, [pathname]);
 
-useEffect(() => {
-  // Reset chat and thread state when pathname changes before fetching new thread
-  setIsLoading(true);
-  setThreadId("");
-  setChatHistory([]);
-  if (!datasetId) return;
-  (async () => {
-    const workflowStageName = getWorkflowStageName(pathname);
-    const res = await getThreadId({ datasetId, workflowStageName })
-    setThreadId(res);
-  })();
-}, [datasetId, pathname]);
+  // initial load
+  useEffect(() => {
+    if (!datasetId) return;
+    resetThread();
+  }, [datasetId]);
+
+  // initial load
+  useEffect(() => {
+    if (!threadId) return;
+    loadChatUI();
+  }, [threadId]);
+
+  const resetThread = async () => {
+    setIsLoading(true);
+    setThreadId("");
+    setChatHistory([]);
+    if (!datasetId) return;
+    (async () => {
+      const workflowStageName = getWorkflowStageName(pathname);
+      const res = await getThreadId({ datasetId, workflowStageName })
+      setThreadId(res);
+    })();
+
+
+  }
 
   useEffect(() => {
-    const fetchChatHistory = async () => {
-      if (!threadId){
-        console.warn("Thread Id is not yet loaded");
-        return;
-      }
+    // Reset chat and thread state when pathname changes before fetching new thread
+    if (datasetId) {
+      resetThread();
+    }
+  }, [datasetId, pathname]);
 
-      if (chatHistory.length != 0 ) return;
+  const loadChatUI = async () => {
+    if (!threadId){
+      console.warn("Thread Id is not yet loaded");
+      return;
+    }
 
-      try {
-        const history = await getChatHistory(threadId);
-        if (history.length != 0) {
-          // Process the raw history to create a clean, displayable format
-          setChatHistory(
-            history.map((item) => {
-              const role = item.role.toLowerCase();
-              let messageText = item.text; // Default to raw text as a fallback
+    try {
+      const history = await getChatHistory(threadId);
+      if (history.length != 0) {
+        // Process the raw history to create a clean, displayable format
+        setChatHistory(
+          history.map((item) => {
+            const role = item.role.toLowerCase();
+            let messageText = item.text; // Default to raw text as a fallback
 
-              if (role === "assistant") {
-                const aiResponse = safeJsonParse<AIResponse<string>>(item.text);
-                if (aiResponse && aiResponse.textResponse) {
-                  messageText = aiResponse.textResponse;
-                }
-              } else if (role === "user") {
-                // Also parse the user's message to extract the simple prompt
-                const userPrompt = safeJsonParse<UserPrompt>(item.text);
-                if (userPrompt && userPrompt.prompt) {
-                  messageText = userPrompt.prompt;
-                }
+            if (role === "assistant") {
+              const aiResponse = safeJsonParse<AIResponse<string>>(item.text);
+              if (aiResponse && aiResponse.textResponse) {
+                messageText = aiResponse.textResponse;
               }
-
-              return {
-                message: messageText,
-                isStart: role === "assistant",
-              };
-            })
-          );
-          const last = history[history.length - 1];
-          if(last && last.role == "assistant" && last.text){ // redundant but safe check
-            // extract updatedData
-            const res = safeJsonParse<AIResponse<string>>(last.text);
-            if (res?.updatedData){
-              updateState({aiResponseContext: last.text});
+            } else if (role === "user") {
+              // Also parse the user's message to extract the simple prompt
+              const userPrompt = safeJsonParse<UserPrompt>(item.text);
+              if (userPrompt && userPrompt.prompt) {
+                messageText = userPrompt.prompt;
+              }
             }
+
+            return {
+              message: messageText,
+              isStart: role === "assistant",
+            };
+          })
+        );
+        const last = history[history.length - 1];
+        if(last && last.role == "assistant" && last.text){ // redundant but safe check
+          // extract updatedData
+          const res = safeJsonParse<AIResponse<string>>(last.text);
+          if (res?.updatedData){
+            updateState({aiResponseContext: last.text});
           }
         }
-        setIsLoading(false);
-      } catch (error) {
-        setIsLoading(false);
-        console.error("Failed to fetch chat history:", error);
-      } finally {
-        setIsLoading(false);
       }
-    };
+      setIsLoading(false);
+    } catch (error) {
+      setIsLoading(false);
+          }
+  };
 
-    fetchChatHistory();
-  }, [threadId, chatHistory, pathname]);
 
   useEffect(() => {
     if (!threadId || !sentPrompt) return;
@@ -224,12 +257,15 @@ useEffect(() => {
           workingData: sharedState.aiContext,
           prompt: sentPrompt
         };
-        const success = await promptAgent({threadId, agentId, text: JSON.stringify(engineeredPrompt)})
-        if (success) setSentPrompt("");
+        const res = await promptAgent({threadId, agentId, text: JSON.stringify(engineeredPrompt)})
+        if (!res.ok){
+          setChatHistory([...chatHistory.slice(0, -1), {message: "Agent not responding. Please try again or restart chat.", isStart: true}]);
+        }
+        else{
+          await loadChatUI();
+        }
 
       }
-
-      setChatHistory([]);
       setSentPrompt("");
     }
 
@@ -248,45 +284,6 @@ useEffect(() => {
     }
   }, [chatHistory]);
 
-  useEffect(() => {
-    if (isLoading) {
-      setDynamicContent(
-        <div className="flex justify-center items-center h-full">
-          <span className="loading loading-spinner loading-lg text-white"></span>
-        </div>
-      );
-      return;
-    }
-    if (chatHistory.length == 0 && suggestionPrompts.length > 0 && !isLoading) {
-      setDynamicContent(
-        <div className="flex flex-col items-center justify-center h-full text-center">
-          <h2 className="text-xl font-semibold mb-2">AI Assistant</h2>
-          <p className="text-sm text-base-content/70 mb-4">
-            Select a suggestion below to get started.
-          </p>
-          <div className="space-y-2 w-full max-w-sm">
-            {suggestionPrompts.map((prompt, index) => (
-              <button
-                key={index}
-                className="btn btn-outline w-full justify-start text-left normal-case font-normal"
-                onClick={() => handleSuggestionClick(prompt)}
-              >
-                {prompt}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-    } else {
-      setDynamicContent(
-        <>
-          {chatHistory.map((msg, idx) => (
-            <ChatBubble key={idx} {...msg} />
-          ))}
-        </>
-      );
-    }
-  }, [chatHistory]);
 
   return (
     <div className="flex flex-col min-h-[600px]">
@@ -295,15 +292,30 @@ useEffect(() => {
           style={{ width: isChatCollapsed ? "40px" : "30%", backgroundColor: "lightgray", transition: "width 0.3s ease" }}
           className="h-[600px] flex flex-col"
         >
-          {/* Toggle button at the top */}
-          <button
-            className="btn btn-xs m-1 self-end"
-            onClick={() => setIsChatCollapsed(!isChatCollapsed)}
-            aria-label={isChatCollapsed ? "Expand chat panel" : "Collapse chat panel"}
-            title={isChatCollapsed ? "Expand chat panel" : "Collapse chat panel"}
-          >
-            {isChatCollapsed ? "▶" : "◀"}
-          </button>
+          {/* Toggle and Reset buttons at the top */}
+          <div className="flex flex-row justify-end">
+            {!sentPrompt && !isLoading && <button
+              className="btn btn-xs m-1 self-end"
+              onClick={async () => {
+                if (!datasetId) return;
+                const workflowStageName = getWorkflowStageName(pathname);
+                resetChat({ datasetId, workflowStageName });
+              }}
+              aria-label="Reset chat"
+              title="Reset chat"
+            >
+              Reset
+            </button>
+            }
+            <button
+              className="btn btn-xs m-1 self-end"
+              onClick={() => setIsChatCollapsed(!isChatCollapsed)}
+              aria-label={isChatCollapsed ? "Expand chat panel" : "Collapse chat panel"}
+              title={isChatCollapsed ? "Expand chat panel" : "Collapse chat panel"}
+            >
+              {isChatCollapsed ? "▶" : "◀"}
+            </button>
+          </div>
 
           {/* Chat content area */}
           <div 
@@ -318,15 +330,35 @@ useEffect(() => {
               flexDirection: "column",
             }}
           >
-            {
-              isLoading ? (
-                <div className="flex justify-center items-center h-full">
-                  <span className="loading loading-spinner loading-lg text-white"></span>
+            {isLoading ? (
+              <div className="flex justify-center items-center h-full">
+                <span className="loading loading-spinner loading-lg text-white"></span>
+              </div>
+            ) : chatHistory.length === 0 && suggestionPrompts.length > 0 ? (
+              <div className="flex flex-col items-center justify-center h-full text-center">
+                <h2 className="text-xl font-semibold mb-2">AI Assistant</h2>
+                <p className="text-sm text-base-content/70 mb-4">
+                  Select a suggestion below to get started.
+                </p>
+                <div className="space-y-2 w-full max-w-sm">
+                  {suggestionPrompts.map((prompt, index) => (
+                    <button
+                      key={index}
+                      className="btn btn-outline w-full justify-start text-left normal-case font-normal"
+                      onClick={() => handleSuggestionClick(prompt)}
+                    >
+                      {prompt}
+                    </button>
+                  ))}
                 </div>
-              ) : (
-                dynamicContent
-              )
-            }
+              </div>
+            ) : (
+              <>
+                {chatHistory.map((msg, idx) => (
+                  <ChatBubble key={idx} {...msg} />
+                ))}
+              </>
+            )}
           </div>
 
           {/* Input bar at the bottom */}
@@ -349,6 +381,7 @@ useEffect(() => {
                     setChatHistory((prev) => [
                       ...prev,
                       { message: prompt, role: "user", isStart: false },
+                      { message: <TypingIndicator />, role: "agent", isStart: true },
                     ]);
                     // Scroll to bottom after new message is added
                     if (chatContainerRef.current) {

@@ -15,15 +15,13 @@ using static DataVizApp.Controllers.DatasetController;
 
 namespace DataVizApp.Services
 {
-    public class DatasetService(AppDbContext appDbContext, AgentService agentService, IServiceScopeFactory scopeFactory)
+    public class DatasetService(AppDbContext appDbContext, AgentService agentService)
     {
 
 
         private readonly AppDbContext _appDbContext = appDbContext;
 
         private readonly AgentService _agentService = agentService;
-
-        private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
 
         public async Task<Dataset?> GetDatasetByIdAsync(int id)
         {
@@ -51,7 +49,7 @@ namespace DataVizApp.Services
             // Add WorkflowStage entries
             foreach (var stageName in workflowStagesNames)
             {
-                string newThread = _agentService.CreateNewThread();
+                string newThread = await _agentService.CreateNewThreadAsync();
                 WorkflowStage workflowStage = new()
                 {
                     DatasetId = dataset.DatasetId, // now has valid ID
@@ -249,7 +247,7 @@ namespace DataVizApp.Services
             if (!existingColumns.Any())
                 throw new Exception("No existing columns found for this dataset.");
 
-            
+
             // 2. Verify that all old column names exist
             var missingColumns = columnNamesMap
                 .Where(m => !existingColumns.Any(c => c.ColumnName == m.OldColumnName))
@@ -285,6 +283,23 @@ namespace DataVizApp.Services
             }
 
             // 4. Save changes
+            await _appDbContext.SaveChangesAsync();
+        }
+
+        public async Task ResetChatAsync(int datasetId, string workflowStageName)
+        {
+            var workflowStage = await _appDbContext.WorkflowStages
+                .FirstOrDefaultAsync(ws => ws.DatasetId == datasetId && ws.WorkflowStageName == workflowStageName);
+
+            if (workflowStage == null)
+            {
+                throw new Exception("Workflow stage not found.");
+            }
+
+            // Create a new thread
+            string newThreadId = await _agentService.CreateNewThreadAsync();
+            workflowStage.AzureAgentThreadId = newThreadId;
+
             await _appDbContext.SaveChangesAsync();
         }
     }

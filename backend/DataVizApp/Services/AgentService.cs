@@ -12,11 +12,11 @@ namespace DataVizApp.Services
         private readonly AIProjectClient _projectClient = projectClient;
         private readonly AzureAIAgentsOptions _agentsConfig = agentsConfig.Value;
 
-        public string CreateNewThread()
+        public async Task<string> CreateNewThreadAsync()
         {
-            PersistentAgentThread thread = _projectClient.GetPersistentAgentsClient()
+            PersistentAgentThread thread = await _projectClient.GetPersistentAgentsClient()
                                                          .Threads
-                                                         .CreateThread();
+                                                         .CreateThreadAsync();
             return thread.Id;
         }
 

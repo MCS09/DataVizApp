@@ -338,5 +338,12 @@ namespace DataVizApp.Controllers
                 status = "completed"
             });
         }
+
+        [HttpGet("resetChat")]
+        public async Task<IActionResult> ResetChat([FromQuery] GetThreadIdRequest request)
+        {
+            await _datasetService.ResetChatAsync(request.DatasetId, request.WorkflowStageName);
+            return NoContent();
+        }
     }
 }

@@ -1,6 +1,7 @@
+import { JSX } from "react";
 
 export type ChatBubbleParam = {
-  message: string;
+  message: string | JSX.Element;
   isStart: boolean;
 };
 
