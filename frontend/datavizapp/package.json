@@ -33,7 +33,6 @@
     "pyodide": "^0.28.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-flow-renderer": "^9.0.4",
     "react-markdown": "^10.1.0",
     "react-plotly.js": "^2.6.0",
     "swr": "^2.3.4",
