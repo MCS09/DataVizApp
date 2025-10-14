@@ -40,7 +40,7 @@ const toColumns = (profiles: ColumnProfile[]): Column[] =>
   }));
 
 /**
- * useDatasetColumnsAnywhere
+ * useDatasetColumns
  *
  * What it does
  * 1. Reads columns from the global store aiContext if available
