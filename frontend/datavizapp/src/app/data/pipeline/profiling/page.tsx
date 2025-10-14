@@ -14,7 +14,7 @@ import { ColumnProfile, getColumnProfile, saveColumns } from "@/lib/dataset";
 export default function ProfilingPage() {
   const [datasetId, setDatasetId] = useState<number | undefined>();
   const [columns, setColumns] = useState<
-    { columnHeader: string; columnProfile: ColumnProfile, oldColumnName: string }[]
+    { columnHeader: string; columnProfile: ColumnProfile}[]
   >([]);
   const { sharedState, updateState } = useStore();
 
@@ -63,9 +63,10 @@ export default function ProfilingPage() {
     };
 
     const loadColumns = async () => {
-      const cols = getColumnsFromAI() ?? (await fetchColumns());
+      const originalColumns = await fetchColumns();
+      const cols = getColumnsFromAI()?.map(e => {return {...e, columnHeader: originalColumns?.find(o => o.columnProfile.columnName == e.columnProfile.columnName)?.columnHeader ?? 'error'}}) ?? originalColumns;
       if (cols) {
-        setColumns(cols.map( (e) => ({...e, oldColumnName: e.columnProfile.columnName})));
+        setColumns(cols);
         updateState({ aiContext: JSON.stringify(cols) });
       }
     };
@@ -94,11 +95,10 @@ export default function ProfilingPage() {
                 dataType: e.columnProfile.dataType,
                 relationship: e.columnProfile.relationship,
               })),
-              columnNamesMap: columns.map((c) => ({
-                oldColumnName:
-                  c.oldColumnName,
-                newColumnName: c.columnProfile.columnName,
-              })),
+              columnNamesMap: columns.map(e => {return {
+                oldColumnName: e.columnHeader,
+                newColumnName: e.columnProfile.columnName
+              }}),
             });
           }}
         />
