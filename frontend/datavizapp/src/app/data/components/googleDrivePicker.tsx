@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { DrivePickerElement } from "@googleworkspace/drive-picker-element";
-import Button from "@/app/components/input/Button";
 
 export interface GoogleDriveFileMetadata {
   id: string;

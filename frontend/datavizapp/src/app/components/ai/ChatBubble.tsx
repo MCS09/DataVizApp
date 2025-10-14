@@ -10,12 +10,12 @@ function BubbleAvatar({ isAssistant }: { isAssistant: boolean }) {
     return (
       <div className="chat-image avatar">
         <div className="w-10 rounded-full">
-          <img alt="Assistant" src="/assistantAvatar.png" />
+          <img alt="Assistant" src="/assistantAvatar.png" className="w-10 rounded-full" />
         </div>
       </div>
     );
   }
-  return;
+  return null;
 }
 
 export function ChatBubble({ message, isStart }: ChatBubbleParam) {

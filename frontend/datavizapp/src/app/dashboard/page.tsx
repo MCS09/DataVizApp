@@ -4,7 +4,6 @@ import { auth } from '@/app/auth';
 import { ROUTES } from '@/constants/routes';
 import type { UserDatasetsDto } from '@/lib/dataset';
 
-import NavBar from '../components/navbar';
 import DashboardCard from './components/DashboardCard';
 
 type Visualization = {

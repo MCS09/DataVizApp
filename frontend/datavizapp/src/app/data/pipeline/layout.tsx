@@ -1,12 +1,12 @@
 "use client";
-
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 import { ChatBubble, ChatBubbleParam } from "@/app/components/ai/ChatBubble";
 import Button from "@/app/components/input/Button";
 import { AGENT_ENUM_BY_ROUTE, ROUTES, WORKFLOW_STAGES_NAMES_BY_ROUTE } from "@/constants/routes";
 import { fetchData, safeJsonParse } from "@/lib/api";
 import useStore from "@/lib/store";
 import { usePathname } from "next/navigation";
-import { JSX, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TypingIndicator } from "@/app/components/ai/TypingIndicator";
 
 
@@ -241,9 +241,10 @@ export default function DataPagesLayout({
         }
       }
       setIsLoading(false);
-    } catch (error) {
+    } catch (err) {
+      console.error("Failed to load chat history:", err);
       setIsLoading(false);
-          }
+    }
   };
 
 

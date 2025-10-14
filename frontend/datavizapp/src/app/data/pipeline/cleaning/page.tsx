@@ -1,9 +1,9 @@
 "use client";
-
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 import { AgGridReact } from "ag-grid-react";
 import { useEffect, useState, useMemo, JSX } from "react";
 import { ColDef } from "ag-grid-community";
-import { useCleanColumnDataTester, usePyFunctions } from "@/lib/hooks/cleaningHooks";
+import { useCleanColumnDataTester } from "@/lib/hooks/cleaningHooks";
 import { ColumnData } from "@/lib/hooks/cleaningHooks";
 import { fetchData, safeJsonParse } from "@/lib/api";
 import { ColumnProfile } from "../profiling/components/CarouselItem";
@@ -15,92 +15,78 @@ import React, { useRef } from "react";
 import { VisualizationSpec } from "vega-embed";
 import useStore from "@/lib/store";
 import { AIResponse } from "../layout";
-import { useRouter } from "next/navigation";
 
 const ColumnDistributionChart = ({ columnData }: { columnData: ColumnData | undefined }) => {
   const ref = useRef<HTMLDivElement>(null);
   const [binStep, setBinStep] = useState<number | undefined>(undefined);
 
-  if (!columnData) return null;
+  const spec: VisualizationSpec | undefined = (() => {
+    if (!columnData) return undefined;
 
-  const numericValues = columnData.dataRecords
-    .map(r => parseFloat(r.value))
-    .filter(v => !isNaN(v));
+    const numericValues = columnData.dataRecords
+      .map(r => parseFloat(r.value))
+      .filter(v => !isNaN(v));
 
-  let spec: VisualizationSpec;
+    if (numericValues.length > 0) {
+      const allIntegers = numericValues.every(v => Number.isInteger(v));
+      if (allIntegers) {
+        return {
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          description: "Histogram of integer values",
+          data: { values: numericValues.map(v => ({ value: v })) },
+          mark: { type: "bar", tooltip: true },
+          encoding: {
+            x: { field: "value", type: "quantitative", bin: true, title: "Value" },
+            y: { aggregate: "count", type: "quantitative", title: "Count" },
+            tooltip: [
+              { field: "value", type: "quantitative", bin: true, title: "Value" },
+              { aggregate: "count", type: "quantitative", title: "Count" }
+            ]
+          }
+        };
+      } else {
+        return {
+          $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+          description: "Box plot of numeric values",
+          data: { values: numericValues.map(v => ({ value: v })) },
+          mark: { type: "boxplot" },
+          encoding: {
+            x: { field: "value", type: "quantitative", title: "Value" },
+            tooltip: [{ field: "value", type: "quantitative", title: "Value" }]
+          }
+        };
+      }
+    } else {
+      const counts: Record<string, number> = {};
+      columnData.dataRecords.forEach(r => {
+        counts[r.value] = (counts[r.value] || 0) + 1;
+      });
+      const values = Object.entries(counts).map(([category, count]) => ({ category, count }));
 
-  if (numericValues.length > 0) {
-    // Numeric data - render histogram if all integers, boxplot if any float
-    const allIntegers = numericValues.every(v => Number.isInteger(v));
-    if (allIntegers) {
-      // Histogram (bar chart)
-      spec = {
+      return {
         $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-        description: "Histogram of integer values",
-        data: { values: numericValues.map(v => ({ value: v })) },
+        description: "Category frequency chart",
+        data: { values },
         mark: { type: "bar", tooltip: true },
         encoding: {
-          x: {
-            field: "value",
-            type: "quantitative",
-            bin: true,
-            title: "Value"
-          },
-          y: {
-            aggregate: "count",
-            type: "quantitative",
-            title: "Count"
-          },
+          x: { field: "category", type: "ordinal", title: "Category" },
+          y: { field: "count", type: "quantitative", title: "Count" },
           tooltip: [
-            { field: "value", type: "quantitative", bin: true, title: "Value" },
-            { aggregate: "count", type: "quantitative", title: "Count" }
-          ]
-        }
-      };
-    } else {
-      // Box plot for floats
-      spec = {
-        $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-        description: "Box plot of numeric values",
-        data: { values: numericValues.map(v => ({ value: v })) },
-        mark: { type: "boxplot" },
-        encoding: {
-          x: { field: "value", type: "quantitative", title: "Value" },
-          tooltip: [
-            { field: "value", type: "quantitative", title: "Value" }
+            { field: "category", type: "ordinal", title: "Category" },
+            { field: "count", type: "quantitative", title: "Count" }
           ]
         }
       };
     }
-  } else {
-    // Categorical data
-    const counts: Record<string, number> = {};
-    columnData.dataRecords.forEach(r => {
-      counts[r.value] = (counts[r.value] || 0) + 1;
-    });
-    const values = Object.entries(counts).map(([category, count]) => ({ category, count }));
+  })();
 
-    spec = {
-      $schema: "https://vega.github.io/schema/vega-lite/v5.json",
-      description: "Category frequency chart",
-      data: { values },
-      mark: { type: "bar", tooltip: true },
-      encoding: {
-        x: { field: "category", type: "ordinal", title: "Category" },
-        y: { field: "count", type: "quantitative", title: "Count" },
-        tooltip: [
-          { field: "category", type: "ordinal", title: "Category" },
-          { field: "count", type: "quantitative", title: "Count" }
-        ]
-      }
-    };
-  }
+  useVegaEmbed({ ref, spec, options: { actions: false } });
 
-  useVegaEmbed({ ref, spec: spec as any, options: { actions: false } });
+  if (!columnData) return null;
 
   return (
     <div className="mt-4">
-      {numericValues.length > 0 && (
+      {spec && (
         <div className="flex items-center gap-2 mb-2">
           <label className="text-sm">Bin Size:</label>
           <input
@@ -161,7 +147,6 @@ export default function CleaningPage() {
   });
   const {setCleaningCode, context, setContext, setExecuteCleaning} = useCleanColumnDataTester();
   const { sharedState, updateState } = useStore();
-  const router = useRouter();
 
   type SendToAIContext = {
     minifiedColumnData: { recordNumber: number; oldValue: string; newValue: string }[];
@@ -207,7 +192,7 @@ export default function CleaningPage() {
     if (masterState.gridApi && masterState.columnData && context?.columnData) {
       // Get first 5 displayed rows from AG Grid
       const displayedRows: any[] = [];
-      masterState.gridApi.forEachNodeAfterFilterAndSort((node: any, idx: number) => {
+      masterState.gridApi.forEachNodeAfterFilterAndSort((node: any) => {
         if (displayedRows.length < 5) {
           displayedRows.push(node.data);
         }
@@ -307,13 +292,13 @@ export default function CleaningPage() {
       });
       const maxCount = Math.max(0, ...Object.values(counts));
       const mostFrequent = Object.entries(counts)
-        .filter(([_, c]) => c === maxCount)
+        .filter(([, c]) => c === maxCount)
         .map(([v]) => v);
       setMasterState(prev => ({
         ...prev,
         columnSummaryState: {
           type: "categorical",
-          totalRecords: numericValues.length ?? 0,
+          totalRecords: masterState.columnData?.dataRecords.length ?? 0,
           uniqueValues: Object.keys(counts).length,
           mostFrequent,
           mostFrequentCount: maxCount,
@@ -363,7 +348,7 @@ export default function CleaningPage() {
         newValue: context.columnData.dataRecords[index].value
       }));
     }
-    return masterState.columnData.dataRecords.map((record, index) => ({
+    return masterState.columnData.dataRecords.map((record) => ({
       recordNumber: record.recordNumber,
       value: record.value,
       newValue: record.value
@@ -573,13 +558,13 @@ for record in column_data.get("dataRecords", []):
         <Button
           label="Apply"
           action={async () => {
-            let filteredRecordNumbers: number[] = [];
+            const filteredRecordNumbers: number[] = [];
             if (masterState.applyFiltered && masterState.gridApi) {
-              masterState.gridApi.forEachNodeAfterFilter((node: any) => {
+                masterState.gridApi.forEachNodeAfterFilter((node: { data?: { recordNumber?: number } }) => {
                 if (node.data?.recordNumber !== undefined) {
                   filteredRecordNumbers.push(node.data.recordNumber);
                 }
-              });
+                });
             }
             const params: Record<string, any> = {
               ...masterState.paramsState,

@@ -55,7 +55,7 @@ export default function DataLandingPage() {
           <StepIcon path={ICONS.profile} />
           <h3 className="font-semibold text-gray-800">2. Profile</h3>
           <p className="mt-1 text-sm text-gray-500">
-            Understand your data's structure and quality.
+            Understand your data&apos;s structure and quality.
           </p>
         </div>
         {/* Step 3 */}

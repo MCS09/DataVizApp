@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import ColumnProfileList from "./components/ColumnProfileList";
 import { ColumnProfile } from "@/app/components/input/Fieldset";
 import { fetchData, postData, safeJsonParse } from "@/lib/api";
-import { useColumns, Column } from "@/lib/hooks/useColumns";
+import { Column } from "@/lib/hooks/useColumns";
 import useStore from "@/lib/store";
 import { AIResponse } from "../layout";
 import Button from "@/app/components/input/Button";

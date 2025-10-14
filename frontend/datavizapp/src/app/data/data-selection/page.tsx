@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import GoogleDrivePicker, { GoogleDriveFileMetadata } from "../components/googleDrivePicker";
 import { ROUTES } from "@/constants/routes";
@@ -33,21 +33,6 @@ const getDatasetDetail = async (userId: string) =>
     { method: "GET", headers: { "Content-Type": "application/json" } }
   );
 
-const deleteDatasetById = async (datasetId: number) => {
-  const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
-  if (!backendUrl) return false;
-  try {
-    const response = await fetch(`${backendUrl}/api/Dataset/${datasetId}`, {
-      method: "DELETE",
-      headers: { "Content-Type": "application/json" },
-    });
-    return response.status === 204 || response.status === 404 || response.ok;
-  } catch (error) {
-    console.error("Failed to delete dataset:", error);
-    return false;
-  }
-};
-
 //
 // --- Main Component ---
 //
@@ -55,16 +40,11 @@ const deleteDatasetById = async (datasetId: number) => {
 export default function DatasetSelectionPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [showPreview, setShowPreview] = useState(false);
-  const [previewData, setPreviewData] = useState<string[][]>([]);
-  const [previewHeaders, setPreviewHeaders] = useState<string[]>([]);
   const [datasets, setDatasets] = useState<Dataset[]>([]);
   const [loading, setLoading] = useState(false);
   const { data: session } = useSession();
-  const [latest, setLatest] = useState<Dataset | null>(null);
-  const [datasetName, setDatasetName] = useState("");
   const [selectedHistoryId, setSelectedHistoryId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const router = useRouter();
 
@@ -77,7 +57,6 @@ export default function DatasetSelectionPage() {
       setGoogleFileData({ id: newMetadata.id, accessToken: newAccessToken });
       setMetadata(newMetadata);
       setFileName(newMetadata.name);
-      setDatasetName(newMetadata.name.replace(/\.[^/.]+$/, ""));
       setShowPreview(true);
     },
     []
@@ -129,26 +108,6 @@ export default function DatasetSelectionPage() {
     setConfirmDeleteId(datasetId);
   };
 
-  const closeDeleteModal = () => {
-    if (deleteLoading) return;
-    setConfirmDeleteId(null);
-    setDeleteError(null);
-  };
-
-  const confirmDelete = async () => {
-    if (!confirmDeleteId) return;
-    setDeleteLoading(true);
-    const success = await deleteDatasetById(confirmDeleteId);
-    if (!success) {
-      setDeleteError("Failed to delete dataset. Please try again.");
-      setDeleteLoading(false);
-      return;
-    }
-    setDatasets((prev) => prev.filter((ds) => ds.datasetId !== confirmDeleteId));
-    setConfirmDeleteId(null);
-    setDeleteLoading(false);
-  };
-
   // --- Fetch user datasets ---
 
   useEffect(() => {
@@ -160,10 +119,8 @@ export default function DatasetSelectionPage() {
         if (result && result.datasets.length > 0) {
           const sorted = [...result.datasets].sort((a, b) => b.datasetId - a.datasetId);
           setDatasets(sorted);
-          setLatest(sorted[0]);
         } else {
           setDatasets([]);
-          setLatest(null);
         }
       } catch (error) {
         console.error("Failed to fetch dataset history:", error);
@@ -231,18 +188,6 @@ export default function DatasetSelectionPage() {
       {showPreview && (
         <div className="card rounded-xl p-6">
           <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset Preview</h2>
-          <div className="overflow-x-auto border border-slate-200 rounded-xl">
-            <table className="w-full table-auto text-left">
-              <thead className="bg-slate-100">
-                <tr>{previewHeaders.map((h, i) => <th key={i} className="px-4 py-2">{h}</th>)}</tr>
-              </thead>
-              <tbody>
-                {previewData.slice(0, 5).map((r, i) => (
-                  <tr key={i} className="border-t">{r.map((c, j) => <td key={j} className="px-4 py-2">{c}</td>)}</tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
           <button
             type="button"
             className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl font-semibold disabled:opacity-50"
