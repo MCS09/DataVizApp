@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 
 type Props = {
   getView: () => any | null;

@@ -1,5 +1,6 @@
 import React from "react";
 import VegaLiteClient from "./VegaLiteClient";
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 
 type Props = {
   spec: any;

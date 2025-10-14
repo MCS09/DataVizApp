@@ -1,4 +1,3 @@
-import { StringValue } from "vega";
 
 export type AIColumnsProfileContext = {
   columnNumber: number;

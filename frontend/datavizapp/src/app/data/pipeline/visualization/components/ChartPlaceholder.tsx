@@ -1,5 +1,6 @@
 import React from "react";
 import ChartBox from "./ChartBox";
+/* eslint-disable  @typescript-eslint/no-explicit-any */
 
 type Props = {
   spec: any;

@@ -1,4 +1,7 @@
 "use client";
+/* eslint-disable  @typescript-eslint/no-explicit-any */
+/* eslint-disable  @typescript-eslint/no-unused-vars */
+
 import { useCallback, useEffect, useState } from "react";
 import { usePyodide } from "./usePyodide";
 import { FileData } from "../dataset";
