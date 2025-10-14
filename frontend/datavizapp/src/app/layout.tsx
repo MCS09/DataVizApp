@@ -12,7 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" data-theme="corporate">
-      <body className="bg-base-200 min-h-screen flex flex-col">
+      <body className="bg-base-white min-h-screen flex flex-col">
           <SessionProvider>
             <NavBar />
             <main className="flex-1">{children}</main>
