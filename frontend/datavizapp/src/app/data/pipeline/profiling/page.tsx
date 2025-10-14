@@ -14,7 +14,7 @@ import { ColumnProfile, getColumnProfile, saveColumns } from "@/lib/dataset";
 export default function ProfilingPage() {
   const [datasetId, setDatasetId] = useState<number | undefined>();
   const [columns, setColumns] = useState<
-    { columnHeader: string; columnProfile: ColumnProfile & { oldColumnName?: string } }[]
+    { columnHeader: string; columnProfile: ColumnProfile, oldColumnName: string }[]
   >([]);
   const { sharedState, updateState } = useStore();
 
@@ -30,10 +30,6 @@ export default function ProfilingPage() {
   // Update individual column
   const updateColumn = (index: number, updatedColumn: ColumnProfile) => {
     const newColumns = [...columns];
-    if (!newColumns[index].columnProfile.oldColumnName) {
-      newColumns[index].columnProfile.oldColumnName =
-        newColumns[index].columnProfile.columnName;
-    }
     newColumns[index].columnProfile = updatedColumn;
 
     // Keep consistent ordering by columnNumber
@@ -69,7 +65,7 @@ export default function ProfilingPage() {
     const loadColumns = async () => {
       const cols = getColumnsFromAI() ?? (await fetchColumns());
       if (cols) {
-        setColumns(cols);
+        setColumns(cols.map( (e) => ({...e, oldColumnName: e.columnProfile.columnName})));
         updateState({ aiContext: JSON.stringify(cols) });
       }
     };
@@ -100,7 +96,7 @@ export default function ProfilingPage() {
               })),
               columnNamesMap: columns.map((c) => ({
                 oldColumnName:
-                  c.columnProfile.oldColumnName || c.columnProfile.columnName,
+                  c.oldColumnName,
                 newColumnName: c.columnProfile.columnName,
               })),
             });
