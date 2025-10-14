@@ -1,3 +1,5 @@
+import { fetchData, postData } from "./api";
+
 export type UserDatasetsDto = {
   datasets: Dataset[];
 }
@@ -23,3 +25,35 @@ export async function loadDriveFile(fileData: FileData): Promise<string> {
     const fileContent = await response.text();
     return fileContent;
 }
+
+// Get Column Profile
+export const getColumnProfile = async (datasetId: number) =>
+await fetchData<ColumnProfile[]>(
+  `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnsByDatasetId/${datasetId}`,
+  {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+  }
+);
+
+export type ColumnsDto = {
+  datasetId: number;
+  newColumns: ColumnProfile[];
+  columnNamesMap: { oldColumnName: string; newColumnName: string }[];
+};
+
+export type ColumnProfile = {
+    columnName: string;
+    columnDescription: string;
+    dataType: string;
+    columnNumber: number;
+    relationship: string;
+}
+
+export const saveColumns = async (body: ColumnsDto) =>
+  await postData(
+    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumns`,
+    body
+  );

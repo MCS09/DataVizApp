@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import useStore from "@/lib/store";
 import { fetchData, safeJsonParse } from "@/lib/api";
 import { Column, useColumns } from "@/lib/hooks/useColumns"; // your existing types and setter
-import type { ColumnProfile } from "@/app/data/pipeline/profiling/components/Carousel";
+import { ColumnProfile } from "../dataset";
 
 // Matches your AIResponse envelope used in chat
 type AIResponse<T> = {

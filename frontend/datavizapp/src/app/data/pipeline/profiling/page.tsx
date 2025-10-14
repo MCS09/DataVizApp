@@ -1,36 +1,15 @@
 "use client";
 import { useEffect, useState } from "react";
 import ColumnProfileList from "./components/ColumnProfileList";
-import { ColumnProfile } from "@/app/components/input/Fieldset";
-import { fetchData, postData, safeJsonParse } from "@/lib/api";
+import { safeJsonParse } from "@/lib/api";
 import { Column } from "@/lib/hooks/useColumns";
 import useStore from "@/lib/store";
 import { AIResponse } from "../layout";
 import Button from "@/app/components/input/Button";
+import { ColumnProfile, getColumnProfile, saveColumns } from "@/lib/dataset";
 
-// Get Column Profile
-export const getColumnProfile = async (datasetId: number) =>
-  await fetchData<ColumnProfile[]>(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getColumnsByDatasetId/${datasetId}`,
-    {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    }
-  );
 
-export type ColumnsDto = {
-  datasetId: number;
-  newColumns: ColumnProfile[];
-  columnNamesMap: { oldColumnName: string; newColumnName: string }[];
-};
 
-export const saveColumns = async (body: ColumnsDto) =>
-  await postData(
-    `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/setColumns`,
-    body
-  );
 
 export default function ProfilingPage() {
   const [datasetId, setDatasetId] = useState<number | undefined>();

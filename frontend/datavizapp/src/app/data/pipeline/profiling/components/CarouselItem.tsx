@@ -1,12 +1,7 @@
 import Fieldset from "@/app/components/input/Fieldset";
+import { ColumnProfile } from "@/lib/dataset";
 
-export type ColumnProfile = {
-    columnName: string;
-    columnDescription: string;
-    dataType: string;
-    columnNumber: number;
-    relationship: string;
-}
+
 
 export function CarouselItem({
   columnHeader,

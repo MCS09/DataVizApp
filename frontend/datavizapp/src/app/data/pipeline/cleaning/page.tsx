@@ -6,8 +6,6 @@ import { ColDef } from "ag-grid-community";
 import { useCleanColumnDataTester } from "@/lib/hooks/cleaningHooks";
 import { ColumnData } from "@/lib/hooks/cleaningHooks";
 import { fetchData, safeJsonParse } from "@/lib/api";
-import { ColumnProfile } from "../profiling/components/CarouselItem";
-import { getColumnProfile } from "../profiling/page";
 import { RecordDto } from "@/lib/models";
 import Button from "@/app/components/input/Button";
 import { useVegaEmbed } from "react-vega";
@@ -15,6 +13,7 @@ import React, { useRef } from "react";
 import { VisualizationSpec } from "vega-embed";
 import useStore from "@/lib/store";
 import { AIResponse } from "../layout";
+import { ColumnProfile, getColumnProfile } from "@/lib/dataset";
 
 const ColumnDistributionChart = ({ columnData }: { columnData: ColumnData | undefined }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -105,7 +104,7 @@ const ColumnDistributionChart = ({ columnData }: { columnData: ColumnData | unde
 
 
 
-export async function getRecordById(datasetId: number, recordId: number){
+async function getRecordById(datasetId: number, recordId: number){
   return await fetchData<RecordDto>(
       `${process.env.NEXT_PUBLIC_BACKEND_URL}/api/Dataset/getRecord/${datasetId}/${recordId}`,
       {
