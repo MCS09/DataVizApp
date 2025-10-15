@@ -108,6 +108,7 @@ export default function GoogleDrivePicker({
           client-id={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID!}
           scope="https://www.googleapis.com/auth/drive.readonly"
         >
+          <drive-picker-docs-view mime-types="text/csv"></drive-picker-docs-view>
         </drive-picker>
       )}
     </div>
