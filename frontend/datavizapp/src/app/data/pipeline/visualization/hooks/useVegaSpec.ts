@@ -58,7 +58,7 @@ export function useVegaSpec({ width, ratio, theme, maxWidth, maxHeight }: Args) 
 
     return {
       ...toPlain(baseSpec),
-      $schema: "https://vega.github.io/schema/vega-lite/v5.json",
+      // $schema: "https://vega.github.io/schema/vega-lite/v5.json",
       width: clampedWidth,
       ...(height ? { height } : {}),
       // encoding: {

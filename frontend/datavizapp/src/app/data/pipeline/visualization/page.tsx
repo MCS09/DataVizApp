@@ -218,8 +218,7 @@ export default function Page() {
   }, [fullSpecPromise, spec]);
 
   return (
-    <div ref = {scrollRef} className="flex flex-col h-screen bg-white overflow-y-auto" >
-      <div className="flex-1">
+    <div ref = {scrollRef} className="flex flex-col h-full max-h-[calc(100vh-120px)] bg-white overflow-y-auto" >      <div className="flex-1">
         <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-4">
           {/* Top Control Bar */}
           <div className="p-4 bg-gray-50 border border-gray-200 rounded-lg">
