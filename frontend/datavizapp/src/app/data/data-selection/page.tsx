@@ -170,7 +170,7 @@ export default function DatasetSelectionPage() {
                   {isSelected && (
                     <div className="flex gap-3 border-t border-slate-200 px-4 py-3">
                       <button className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => handleHistorySelection(dataset)}>
-                        Apply to Profiling
+                        Continue
                       </button>
                       <button className="flex-1 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100" onClick={() => handleDeleteRequest(dataset.datasetId)}>
                         Delete Dataset
