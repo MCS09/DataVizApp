@@ -837,7 +837,11 @@ for record in column_data.get("dataRecords", []):
         onChange={() => setMasterState(prev => ({ ...prev, currentMasterTab: "Multi-Column Operations" }))}
       />
       <div className="tab-content bg-base-100 border-base-300 p-6">
-
+        To Be Extended with Aggregation function to replace lambda transformation. (Out of scope)
+        •	Filter out entire rows based on multi-column logic.
+        •	Perform aggregations (like “frequency across samples”).
+        •	Apply reference list exclusions (unless you’ve imported the list and can match it).
+        •	Maintain context across rows (like detecting recurrence thresholds).
       </div>
       
     </div>

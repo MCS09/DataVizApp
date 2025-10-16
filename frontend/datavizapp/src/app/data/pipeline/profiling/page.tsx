@@ -16,6 +16,7 @@ export default function ProfilingPage() {
   const [columns, setColumns] = useState<
     { columnHeader: string; columnProfile: ColumnProfile}[]
   >([]);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { sharedState, updateState } = useStore();
 
   // Load datasetId (From session storage)
@@ -41,9 +42,7 @@ export default function ProfilingPage() {
     updateState({ aiContext: JSON.stringify(sorted) });
   };
 
-  // Load column profiles (from backend or AI)
-  useEffect(() => {
-    const fetchColumns = async () => {
+  const fetchColumns = async () => {
       if (!datasetId) return;
       const colsProfiles = await getColumnProfile(datasetId);
       return colsProfiles.map((curr) => ({
@@ -64,12 +63,33 @@ export default function ProfilingPage() {
 
     const loadColumns = async () => {
       const originalColumns = await fetchColumns();
-      const cols = getColumnsFromAI()?.map(e => {return {...e, columnHeader: originalColumns?.find(o => o.columnProfile.columnName == e.columnProfile.columnName)?.columnHeader ?? 'error'}}) ?? originalColumns;
+      const aiColumns = getColumnsFromAI();
+      let cols = originalColumns;
+
+      if (aiColumns && aiColumns.length > 0) {
+        const allMatched = aiColumns.every(e =>
+          originalColumns?.some(o => o.columnHeader === e.columnHeader)
+        );
+
+        if (allMatched) {
+          cols = aiColumns.map(e => ({
+            ...e,
+            columnHeader:
+              originalColumns?.find(o => o.columnHeader === e.columnHeader)
+                ?.columnHeader ?? "error",
+          }));
+        } else {
+          console.warn("AI response columns do not fully match original columns. Using originalColumns instead.");
+        }
+      }
       if (cols) {
         setColumns(cols);
         updateState({ aiContext: JSON.stringify(cols) });
       }
     };
+
+  // Load column profiles (from backend or AI)
+  useEffect(() => {
     loadColumns();
   }, [sharedState.aiResponseContext, datasetId]);
 
@@ -86,7 +106,7 @@ export default function ProfilingPage() {
           className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl glow font-semibold disabled:opacity-50"
           action={async () => {
             if (!datasetId) return;
-            await saveColumns({
+            const res = await saveColumns({
               datasetId: datasetId,
               newColumns: columns.map((e) => ({
                 columnNumber: e.columnProfile.columnNumber,
@@ -100,9 +120,23 @@ export default function ProfilingPage() {
                 newColumnName: e.columnProfile.columnName
               }}),
             });
+          if (res) {
+            setToastMessage("Changes saved successfully!");
+            window.location.reload();
+          } else {
+            setToastMessage("Failed to save changes");
+          }
+          setTimeout(() => setToastMessage(null), 4000);
           }}
         />
       </div>
+      {toastMessage && (
+        <div className="toast toast-top toast-start z-50">
+          <div className="alert alert-info">
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -187,7 +187,7 @@ export default function DatasetSelectionPage() {
       {/* Preview */}
       {showPreview && (
         <div className="card rounded-xl p-6">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset Preview</h2>
+          {/* <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset Preview</h2> */}
           <button
             type="button"
             className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl font-semibold disabled:opacity-50"
