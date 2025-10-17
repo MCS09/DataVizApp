@@ -133,82 +133,233 @@ export default function DatasetSelectionPage() {
   // --- Render ---
 
   return (
-    <div className="flex flex-col gap-2">
-      {/* Upload Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
-        <div className="lg:col-span-2 card rounded-xl p-6">
-          <div className="p-12 text-center border rounded-lg border-dashed border-slate-300">
-            <svg
-              className="w-16 h-16 text-green-500 mx-auto mb-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4l2.5 4.5h-5L12 4zm0 16l-2.5-4.5h5L12 20zm-8-8l4.5-2.5v5L4 12zm16 0l-4.5 2.5v-5L20 12z" />
-            </svg>
-            <p className="text-lg mb-4 text-slate-800">Select your CSV file from Google Drive</p>
-            <GoogleDrivePicker handleFilePicked={handleFilePicked} />
-            {fileName && <p className="mt-4 text-slate-600">Selected: {fileName}</p>}
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 p-4 md:p-8">
+      <div className="mx-auto max-w-7xl">
+        {/* Header */}
+        <div className="mb-8 text-center">
+          <h1 className="bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-4xl font-bold text-transparent md:text-5xl">
+            Dataset Manager
+          </h1>
+          <p className="mt-3 text-lg text-slate-600">Import new datasets or continue with saved ones</p>
         </div>
 
-        {/* History */}
-        <div className="lg:col-span-1 card rounded-xl p-6">
-          <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset History</h2>
-          <div className="h-[350px] overflow-y-auto pr-2 space-y-3">
-            {datasets.map((dataset, idx) => {
-              const isSelected = selectedHistoryId === dataset.datasetId;
-              return (
-                <div key={dataset.datasetId} className={`w-full rounded-xl border transition ${idx === 0 ? "border-purple-300 bg-purple-50 hover:bg-purple-100" : "border-slate-200 bg-white hover:bg-slate-50"}`}>
-                  <button onClick={() => handleHistoryClick(dataset.datasetId)} className="flex w-full items-center gap-3 rounded-xl p-4 text-left">
-                    <div className="flex-1">
-                      <p className={`font-semibold ${idx === 0 ? "text-purple-800" : "text-slate-800"}`}>{dataset.datasetName || "Untitled Dataset"}</p>
-                      <p className="text-sm text-slate-600">ID: {dataset.datasetId}</p>
-                    </div>
-                    {idx === 0 && <span className="rounded-full bg-purple-200 px-2 py-1 text-xs text-purple-700">Latest</span>}
-                  </button>
-                  {isSelected && (
-                    <div className="flex gap-3 border-t border-slate-200 px-4 py-3">
-                      <button className="flex-1 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700" onClick={() => handleHistorySelection(dataset)}>
-                        Continue
-                      </button>
-                      <button className="flex-1 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 hover:bg-red-100" onClick={() => handleDeleteRequest(dataset.datasetId)}>
-                        Delete Dataset
-                      </button>
-                    </div>
-                  )}
+        {/* Main Content Grid */}
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Import Section */}
+          <div className="group relative overflow-hidden rounded-2xl bg-white p-8 shadow-lg transition-all hover:shadow-xl">
+            <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br from-purple-100 to-blue-100 opacity-50 blur-2xl"></div>
+            
+            <div className="relative">
+              <div className="mb-6 flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-br from-purple-500 to-blue-500 p-3">
+                  <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
                 </div>
-              );
-            })}
+                <h2 className="text-2xl font-bold text-slate-800">Import Dataset</h2>
+              </div>
+
+              <div className="rounded-xl bg-gradient-to-br from-slate-50 to-slate-100 p-8 text-center">
+                <div className="mx-auto mb-6 flex h-24 w-24 items-center justify-center rounded-2xl bg-white shadow-md transition-transform hover:scale-105">
+                  <img
+                    className="h-16 w-16"
+                    src="https://upload.wikimedia.org/wikipedia/commons/thumb/1/12/Google_Drive_icon_%282020%29.svg/512px-Google_Drive_icon_%282020%29.svg.png"
+                    alt="Google Drive"
+                  />
+                </div>
+                
+                <h3 className="mb-3 text-lg font-semibold text-slate-800">Connect Google Drive</h3>
+                <p className="mb-6 text-sm text-slate-600">Import your datasets directly from Google Drive</p>
+                
+                <GoogleDrivePicker handleFilePicked={handleFilePicked} />
+                
+                {fileName && (
+                  <div className="mt-6 animate-in fade-in slide-in-from-bottom-4 rounded-lg bg-green-50 p-4 duration-500">
+                    <div className="flex items-center gap-2 text-green-700">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="font-medium">Selected:</span>
+                    </div>
+                    <p className="mt-1 text-sm font-semibold text-slate-800">{fileName}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* History Section */}
+          <div className="group relative overflow-hidden rounded-2xl bg-white p-8 shadow-lg transition-all hover:shadow-xl">
+            <div className="absolute -left-8 -top-8 h-32 w-32 rounded-full bg-gradient-to-br from-blue-100 to-purple-100 opacity-50 blur-2xl"></div>
+            
+            <div className="relative">
+              <div className="mb-6 flex items-center gap-3">
+                <div className="rounded-xl bg-gradient-to-br from-blue-500 to-purple-500 p-3">
+                  <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800">Saved Datasets</h2>
+              </div>
+
+              <div className="h-[400px] space-y-3 overflow-y-auto pr-2 scrollbar-thin scrollbar-track-slate-100 scrollbar-thumb-slate-300">
+                {datasets.length === 0 ? (
+                  <div className="flex h-full flex-col items-center justify-center text-center">
+                    <div className="mb-4 rounded-full bg-slate-100 p-4">
+                      <svg className="h-12 w-12 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                      </svg>
+                    </div>
+                    <p className="text-slate-600">No saved datasets yet</p>
+                    <p className="mt-2 text-sm text-slate-500">Import your first dataset to get started</p>
+                  </div>
+                ) : (
+                  datasets.map((dataset, idx) => {
+                    const isSelected = selectedHistoryId === dataset.datasetId;
+                    const isLatest = idx === 0;
+                    return (
+                      <div
+                        key={dataset.datasetId}
+                        className={`overflow-hidden rounded-xl border-2 transition-all ${
+                          isLatest
+                            ? "border-purple-300 bg-gradient-to-br from-purple-50 to-blue-50 shadow-md"
+                            : "border-slate-200 bg-white hover:border-slate-300 hover:shadow-md"
+                        }`}
+                      >
+                        <button
+                          onClick={() => handleHistoryClick(dataset.datasetId)}
+                          className="flex w-full items-center gap-4 p-5 text-left transition-all"
+                        >
+                          <div className={`rounded-lg p-2 ${isLatest ? "bg-purple-200" : "bg-slate-100"}`}>
+                            <svg className={`h-6 w-6 ${isLatest ? "text-purple-600" : "text-slate-600"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                            </svg>
+                          </div>
+                          <div className="flex-1">
+                            <p className={`font-semibold ${isLatest ? "text-purple-900" : "text-slate-800"}`}>
+                              {dataset.datasetName || "Untitled Dataset"}
+                            </p>
+                            <p className="text-sm text-slate-600">Dataset ID: {dataset.datasetId}</p>
+                          </div>
+                          {isLatest && (
+                            <span className="rounded-full bg-gradient-to-r from-purple-500 to-blue-500 px-3 py-1 text-xs font-semibold text-white shadow-sm">
+                              Latest
+                            </span>
+                          )}
+                        </button>
+                        {isSelected && (
+                          <div className="animate-in fade-in slide-in-from-top-2 border-t border-slate-200 bg-slate-50 p-4 duration-300">
+                            <div className="flex gap-3">
+                              <button
+                                className="flex-1 rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3 text-sm font-semibold text-white shadow-sm transition-all hover:from-blue-700 hover:to-blue-800 hover:shadow-md"
+                                onClick={() => handleHistorySelection(dataset)}
+                              >
+                                Continue Analysis
+                              </button>
+                              <button
+                                className="flex-1 rounded-lg border-2 border-red-200 bg-white px-4 py-3 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 hover:border-red-300"
+                                onClick={() => handleDeleteRequest(dataset.datasetId)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
           </div>
         </div>
+
+        {/* Preview/Confirmation Section */}
+        {showPreview && (
+          <div className="animate-in fade-in slide-in-from-bottom-8 mt-6 overflow-hidden rounded-2xl bg-gradient-to-r from-purple-600 to-blue-600 p-8 shadow-xl duration-500">
+            <div className="flex flex-col items-center gap-6 md:flex-row md:justify-between">
+              <div className="text-center md:text-left">
+                <h3 className="text-2xl font-bold text-white">Ready to Profile Your Dataset</h3>
+                <p className="mt-2 text-purple-100">Click continue to start analyzing your data</p>
+              </div>
+              <button
+                type="button"
+                className="group relative overflow-hidden rounded-xl bg-white px-8 py-4 font-semibold text-purple-600 shadow-lg transition-all hover:scale-105 hover:shadow-xl disabled:opacity-50 disabled:hover:scale-100"
+                onClick={handleConfirm}
+                disabled={loading}
+              >
+                <span className="relative z-10 flex items-center gap-2">
+                  {loading ? (
+                    <>
+                      <svg className="animate-spin h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Continue to Profile
+                      <svg className="h-5 w-5 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                      </svg>
+                    </>
+                  )}
+                </span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {confirmDeleteId !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 backdrop-blur-sm">
+            <div className="animate-in zoom-in-95 w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl duration-300">
+              <div className="bg-gradient-to-r from-red-500 to-red-600 px-6 py-5">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-full bg-white/20 p-2">
+                    <svg className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold text-white">Delete Dataset</h3>
+                </div>
+              </div>
+              
+              <div className="p-6">
+                <p className="text-slate-700">
+                  Are you sure you want to permanently delete dataset <span className="font-semibold">ID {confirmDeleteId}</span>?
+                </p>
+                <p className="mt-2 text-sm text-slate-500">This action cannot be undone.</p>
+                
+                {deleteError && (
+                  <div className="mt-4 rounded-lg border-2 border-red-200 bg-red-50 p-3">
+                    <p className="text-sm font-medium text-red-700">{deleteError}</p>
+                  </div>
+                )}
+                
+                <div className="mt-6 flex gap-3">
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="flex-1 rounded-lg border-2 border-slate-200 bg-white px-4 py-3 font-semibold text-slate-700 transition-all hover:bg-slate-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={() => {
+                      // Add your delete logic here
+                      setConfirmDeleteId(null);
+                    }}
+                    className="flex-1 rounded-lg bg-gradient-to-r from-red-600 to-red-700 px-4 py-3 font-semibold text-white shadow-sm transition-all hover:from-red-700 hover:to-red-800 hover:shadow-md"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-      {/* Preview */}
-      {showPreview && (
-        <div className="card rounded-xl p-6">
-          {/* <h2 className="text-xl font-bold text-slate-800 mb-4">Dataset Preview</h2> */}
-          <button
-            type="button"
-            className="mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white px-8 py-3 rounded-xl font-semibold disabled:opacity-50"
-            onClick={handleConfirm}
-            disabled={loading}
-          >
-            {loading ? "Loading..." : "Continue to Profile"}
-          </button>
-        </div>
-      )}
-
-      {/* Delete Confirmation Modal */}
-      {confirmDeleteId !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-semibold text-slate-900">Delete dataset?</h3>
-            <p className="mt-2 text-sm text-slate-600">This will permanently delete dataset ID {confirmDeleteId}.</p>
-            {deleteError && <p className="mt-3 bg-red-50 p-3 text-sm text-red-600 rounded-lg border border-red-200">{deleteError}</p>}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -1,5 +1,4 @@
 "use client";
-
 import { useEffect, useRef, useState } from "react";
 import type { DrivePickerElement } from "@googleworkspace/drive-picker-element";
 
@@ -38,7 +37,7 @@ export default function GoogleDrivePicker({
     }
 
     const picker = pickerRef.current;
-    
+
     const handleAuthenticated = (e: Event) => {
       const token = (e as CustomEvent).detail.token as string;
       setAccessToken(token); // Store the token
@@ -54,14 +53,14 @@ export default function GoogleDrivePicker({
           url: pickedFile.url,
           sizeBytes: pickedFile.sizeBytes,
         };
-        if (accessToken == null){
-          throw new Error ("Error opening file, access token missing")
+        if (accessToken == null) {
+          throw new Error("Error opening file, access token missing");
         }
         handleFilePicked(accessToken, metadata);
         setIsPickerVisible(false); // Close picker after a file is picked
       }
     };
-    
+
     const handleClosed = () => {
       setIsPickerVisible(false); // Update state when the picker is closed
     };
@@ -70,7 +69,6 @@ export default function GoogleDrivePicker({
     picker.addEventListener("picker:picked", handlePicked);
     picker.addEventListener("picker:closed", handleClosed);
 
-
     // Show the picker after the component has rendered
     picker.visible = true;
 
@@ -78,12 +76,20 @@ export default function GoogleDrivePicker({
       picker.removeEventListener("picker:authenticated", handleAuthenticated);
       picker.removeEventListener("picker:picked", handlePicked);
       picker.removeEventListener("picker:closed", handleClosed);
+      // Reset picker visibility on cleanup
+      if (picker) {
+        picker.visible = false;
+      }
     };
   }, [isLibraryLoaded, isPickerVisible, handleFilePicked, accessToken]);
 
   const handleOpenPicker = () => {
     if (isLibraryLoaded) {
-      setIsPickerVisible(true);
+      // Force a fresh state by toggling off then on
+      setIsPickerVisible(false);
+      setTimeout(() => {
+        setIsPickerVisible(true);
+      }, 0);
     }
   };
 
@@ -92,13 +98,13 @@ export default function GoogleDrivePicker({
       <button
         onClick={handleOpenPicker}
         disabled={!isLibraryLoaded}
-        className={`px-6 py-3 rounded-xl font-semibold transition-colors ${
+        className={`px-6 py-3 rounded-xl font-semibold transition-all shadow-md hover:shadow-lg ${
           isLibraryLoaded
-            ? "bg-green-600 hover:bg-green-700 text-white cursor-pointer"
+            ? "bg-[#0F9D58] hover:bg-[#0c7a46] text-white cursor-pointer hover:scale-105"
             : "bg-slate-300 text-slate-500 cursor-not-allowed"
         }`}
       >
-        Connect Google Drive
+        {isLibraryLoaded ? "Open Google Drive" : "Loading..."}
       </button>
 
       {isPickerVisible && (
