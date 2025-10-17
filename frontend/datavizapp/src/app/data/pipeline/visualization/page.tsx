@@ -6,6 +6,7 @@ import ChartControls from "./components/ChartControls";
 import ChartThemePicker from "./components/ChartThemePicker";
 import ChartBox from "./components/ChartBox";
 import ExportButtons from "./components/ExportButtons";
+import Loader from "./components/Loader";
 import { useVegaSpec } from "./hooks/useVegaSpec";
 import { chartThemes } from "./lib/chartThemes";
 import { AIColumnsProfileContext, ColumnData } from "./data";
@@ -51,6 +52,9 @@ export default function Page() {
   const [ratio, setRatio] = useState<"original" | "16:9" | "4:3" | "1:1">("16:9");
   const [theme, setTheme] = useState<string>("tableau10");
   const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isStarted, setIsStarted] = useState(true);
+
 
   const vegaRef = useRef<any | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -117,6 +121,8 @@ export default function Page() {
 
       setBaseSpec(specs);
       setError(null);
+      setIsStarted(false);
+
     }
   }, [sharedState.aiResponseContext, setBaseSpec]);
 
@@ -180,7 +186,15 @@ export default function Page() {
         data: {
           values: value,
         },
+        encoding: {
+          ...initialSpec.encoding,
+          color: {
+            ...(initialSpec.encoding?.color || {}),
+            scale: { scheme: theme },
+          },
+        },
       };
+      
     } catch (err: any) {
       console.error("extendSpecWithData error:", err.message);
       setError(err.message || "Failed to fetch data.");
@@ -200,6 +214,7 @@ export default function Page() {
   // Resolve the spec promise and update state
   React.useEffect(() => {
     let alive = true;
+    setIsLoading(true); // Start loading when spec changes
     fullSpecPromise
       .then((s) => {
         if (alive) {
@@ -211,7 +226,10 @@ export default function Page() {
         if (alive) {
           setResolvedSpec(spec);
         }
-      });
+      })
+      .finally(() => {
+      if (alive) setIsLoading(false); // Stop loading once done
+    });
     return () => {
       alive = false;
     };
@@ -235,7 +253,13 @@ export default function Page() {
 
           {/* Chart Area */}
           <div className="min-h-[400px] border border-gray-200 rounded-lg shadow-inner bg-gray-50 flex items-center justify-center p-6">
-            {error ? (
+            {isStarted ? (
+                  <div className="flex flex-col items-center justify-center gap-3 text-gray-600">
+                    <span className="text-sm font-medium">
+                      💬 Chat with AI to get your visualization on the chart rendered.
+                    </span>
+                  </div>
+                ): error ? (
               <div className="flex flex-col items-center justify-center gap-3 p-6">
                 <div className="text-red-600 font-semibold text-lg">
                   ⚠ Error loading chart
@@ -244,7 +268,9 @@ export default function Page() {
                   {error}
                 </div>
               </div>
-            ) : (
+            ) : isLoading ? (
+              <Loader />
+            )  : (
               <ChartBox
                 spec={resolvedSpec}
                 onViewReady={(view) => (vegaRef.current = view)}
@@ -255,7 +281,7 @@ export default function Page() {
           {/* Bottom Toolbar */}
           <div className="flex flex-col sm:flex-row justify-between items-center gap-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
             <ChartThemePicker
-              themes={chartThemes as any}
+              themes={chartThemes}
               activeScheme={theme}
               onPick={(scheme) => setTheme(scheme)}
             />
