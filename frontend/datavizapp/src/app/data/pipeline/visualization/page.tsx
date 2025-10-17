@@ -260,7 +260,13 @@ export default function Page() {
               </div>
             ) : isLoading ? (
               <Loader />
-            ) : (
+            ) : !resolvedSpec ? (
+                  <div className="flex flex-col items-center justify-center gap-3 text-gray-600">
+                    <span className="text-sm font-medium">
+                      💬 Chat with AI to get your visualization on the chart rendered.
+                    </span>
+                  </div>
+                ) : (
               <ChartBox
                 spec={resolvedSpec}
                 onViewReady={(view) => (vegaRef.current = view)}
