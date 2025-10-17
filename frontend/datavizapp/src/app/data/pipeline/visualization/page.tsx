@@ -253,7 +253,13 @@ export default function Page() {
 
           {/* Chart Area */}
           <div className="min-h-[400px] border border-gray-200 rounded-lg shadow-inner bg-gray-50 flex items-center justify-center p-6">
-            {error ? (
+            {isStarted ? (
+                  <div className="flex flex-col items-center justify-center gap-3 text-gray-600">
+                    <span className="text-sm font-medium">
+                      💬 Chat with AI to get your visualization on the chart rendered.
+                    </span>
+                  </div>
+                ):error ? (
               <div className="flex flex-col items-center justify-center gap-3 p-6">
                 <div className="text-red-600 font-semibold text-lg">
                   ⚠ Error loading chart
@@ -264,13 +270,7 @@ export default function Page() {
               </div>
             ) : isLoading ? (
               <Loader />
-            ) : isStarted ? (
-                  <div className="flex flex-col items-center justify-center gap-3 text-gray-600">
-                    <span className="text-sm font-medium">
-                      💬 Chat with AI to get your visualization on the chart rendered.
-                    </span>
-                  </div>
-                ) : (
+            )  : (
               <ChartBox
                 spec={resolvedSpec}
                 onViewReady={(view) => (vegaRef.current = view)}
