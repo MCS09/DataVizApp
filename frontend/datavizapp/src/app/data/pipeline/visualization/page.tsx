@@ -111,7 +111,6 @@ export default function Page() {
 
   // Listen for AI responses and update chart spec
   useEffect(() => {
-    setIsStarted(false);
     if (sharedState.aiResponseContext) {
       const aiResponse = safeJsonParse<AIResponse<string>>(
         sharedState.aiResponseContext
@@ -122,6 +121,8 @@ export default function Page() {
 
       setBaseSpec(specs);
       setError(null);
+      setIsStarted(false);
+
     }
   }, [sharedState.aiResponseContext, setBaseSpec]);
 
