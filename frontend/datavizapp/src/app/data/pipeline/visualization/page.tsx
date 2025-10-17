@@ -53,6 +53,8 @@ export default function Page() {
   const [theme, setTheme] = useState<string>("tableau10");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isStarted, setIsStarted] = useState(true);
+
 
   const vegaRef = useRef<any | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -109,6 +111,7 @@ export default function Page() {
 
   // Listen for AI responses and update chart spec
   useEffect(() => {
+    setIsStarted(false);
     if (sharedState.aiResponseContext) {
       const aiResponse = safeJsonParse<AIResponse<string>>(
         sharedState.aiResponseContext
@@ -260,7 +263,7 @@ export default function Page() {
               </div>
             ) : isLoading ? (
               <Loader />
-            ) : !resolvedSpec ? (
+            ) : isStarted ? (
                   <div className="flex flex-col items-center justify-center gap-3 text-gray-600">
                     <span className="text-sm font-medium">
                       💬 Chat with AI to get your visualization on the chart rendered.
